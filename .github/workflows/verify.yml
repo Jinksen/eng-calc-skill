@@ -1,0 +1,45 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  reference-builds:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install LibreOffice and poppler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-calc poppler-utils fonts-crosextra-carlito
+
+      - name: Install Python dependencies
+        run: pip install openpyxl pillow matplotlib
+
+      - name: Build reference workbooks
+        run: |
+          mkdir -p out
+          for build in skills/eng-calc-workbook/scripts/example_*.py; do
+            python "$build" "out/$(basename "$build" .py).xlsx"
+          done
+
+      - name: Verify (recalculate, lint, render)
+        run: |
+          status=0
+          for book in out/*.xlsx; do
+            python skills/eng-calc-workbook/scripts/verify.py "$book" --render "out/render" || status=$?
+          done
+          exit $status
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reference-workbooks
+          path: out/

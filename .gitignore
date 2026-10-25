@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+out/
+*.xlsx
+!examples/*.xlsx
+~$*.xlsx
+*.pdf
+.DS_Store
+Thumbs.db
+dist/
