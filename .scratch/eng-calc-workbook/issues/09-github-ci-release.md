@@ -1,12 +1,12 @@
-# 09 — GitHub repozitář, CI a vydání 0.2
+# 09 — GitHub CI and release
 
-**Co dodá:** veřejný repozitář s GitHub Actions (instalace LibreOffice, build všech referenčních sešitů, `verify.py` exit 0, artefakty PNG), ZIP skillu jako release asset, marketplace záznam pro Claude Code.
+**Delivers:** GitHub Actions (LibreOffice install, build of all reference workbooks, `verify.py` exit 0, PNG artifacts) — in place; still missing: the skill ZIP and the sample `.xlsx` attached as release assets when a tag `vX.Y.Z` is pushed.
 
-**Blokováno:** 01 — Živý test v Claude in Excel; 02 — Referenční build elektro; 08 — verify úplnost a test banneru
+**Blocked by:** 01 — Live test in Claude in Excel; 08 — verify completeness and banner test
 
 **Status:** ready-for-agent
 
-- [ ] Workflow zelený na čistém Ubuntu runneru
-- [ ] Release obsahuje `eng-calc-workbook.zip` a ukázkové `.xlsx`
-- [ ] README: screenshoty z renderu, instalace pro claude.ai / Claude in Excel / Claude Code
-- [ ] CHANGELOG 0.2.0
+- [ ] Workflow green on a clean Ubuntu runner
+- [ ] Release contains `eng-calc-workbook.zip` and the sample `.xlsx` files
+- [ ] README screenshots regenerated from the render
+- [ ] CHANGELOG entry for the release

@@ -1,24 +1,24 @@
 ---
 name: Ticket (tracer bullet)
-about: Jedna schopnost skillu, která po dokončení funguje end-to-end
+about: One capability of the skill that works end to end once done
 labels: ready-for-agent
 ---
 
 ## What to build
 
-Chování z pohledu uživatele sešitu — ne seznam vrstev.
+Behaviour from the workbook user's point of view — not a list of layers.
 
 ## Reference
 
-Norma / článek, referenční případ s očekávanou hodnotou a tolerancí.
+Standard / clause, reference case with the expected value and tolerance.
 
 ## Acceptance criteria
 
-- [ ] Referenční build (nebo úprava existujícího) používá novou schopnost
-- [ ] Referenční případ sedí v toleranci
-- [ ] `verify.py` exit 0, render prohlédnut
-- [ ] Reference v `skills/eng-calc-workbook/reference/` doplněná (jediný zdroj pravdy)
+- [ ] A reference build (new or changed) uses the new capability
+- [ ] The reference case matches within tolerance
+- [ ] `verify.py` exit 0, render reviewed
+- [ ] Reference docs in `skills/eng-calc-workbook/reference/` updated (single source of truth)
 
 ## Blocked by
 
-- #… nebo „None — can start immediately“
+- #… or "None — can start immediately"
