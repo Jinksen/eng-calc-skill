@@ -45,7 +45,7 @@ skills/eng-calc-workbook/
 
 - **claude.ai / Claude in Excel**: zabal složku `skills/eng-calc-workbook` do ZIP a nahraj v
   Nastavení → Schopnosti → Skills; zapni ho. Claude in Excel aplikuje zapnuté skills automaticky.
-- **Claude Code**: `/plugin marketplace add <github-uživatel>/eng-calc-workbook` a nainstaluj,
+- **Claude Code**: `/plugin marketplace add Jinksen/eng-calc-workbook` a nainstaluj,
   nebo zkopíruj složku skillu do `~/.claude/skills/`.
 
 ## Referenční build
