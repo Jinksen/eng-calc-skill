@@ -1,5 +1,5 @@
 interface:
   display_name: "Engineering Calc Workbook"
-  short_description: "Inženýrské výpočtové sešity v Excelu s posudky ✔/▲/✘"
+  short_description: "Engineering calculation workbooks in Excel with ✔/▲/✘ checks and live part drawings"
 policy:
   allow_implicit_invocation: true

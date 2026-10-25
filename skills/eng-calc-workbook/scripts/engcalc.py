@@ -2,7 +2,7 @@
 
 One visual language for electrical / mechanical / civil calc sheets:
 title block -> status banner -> inputs -> calculation steps -> limit checks
--> results, plus an auto-generated check register (80_Kontroly), README with
+-> results, plus an auto-generated check register (80_Checks), README with
 colour legend, named ranges for every quantity and print-ready A4 setup.
 
 Requires: openpyxl>=3.1, Pillow; matplotlib only for equation()/figure().
@@ -12,26 +12,36 @@ from __future__ import annotations
 import datetime as dt
 import io
 import re
+import textwrap
 from dataclasses import dataclass, field
 from pathlib import Path
+from itertools import accumulate
 from typing import Literal, Sequence, Union
 
 from openpyxl import Workbook
 from openpyxl.cell.cell import Cell
 from openpyxl.chart import BarChart, LineChart, Reference, ScatterChart, Series
+from openpyxl.chart.data_source import StrRef
+from openpyxl.chart.label import DataLabel, DataLabelList
 from openpyxl.chart.layout import Layout, ManualLayout
+from openpyxl.chart.series import SeriesLabel
+from openpyxl.chart.text import RichText
+from openpyxl.drawing.line import LineEndProperties
+from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties, RichTextProperties
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.formatting.rule import DataBarRule, FormulaRule
 from openpyxl.styles import Alignment, Border, Font, NamedStyle, PatternFill, Protection, Side
 from openpyxl.utils import absolute_coordinate, get_column_letter, quote_sheetname
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
+from openpyxl.worksheet.pagebreak import Break
 from openpyxl.worksheet.table import Table, TableStyleInfo
 from openpyxl.worksheet.worksheet import Worksheet
 
 Scalar = Union[int, float, str, dt.date, None]
 Domain = Literal["electrical", "mechanical", "civil", "general"]
 CheckKind = Literal["le", "ge"]
+Place = Literal["left", "right", "full"]
 
 # --------------------------------------------------------------------------- #
 # Visual language (single source of truth — reference/visual-language.md)
@@ -79,6 +89,7 @@ TAB = {
     "calc": C.BLUE,
     "checks": "548235",
     "data": "7030A0",
+    "report": "C55A11",
 }
 
 FONT = "Calibri"
@@ -163,6 +174,24 @@ def index_match(table: str, col: str, key_expr: str) -> str:
     return f"INDEX(db_{table}_{col},MATCH({key_expr},db_{table}_key,0))"
 
 
+def interval_lookup(values: str, upper_bounds: str, x: str) -> str:
+    """Value for the interval ⟨prev ; upper] containing x (ISO 286 / ISO 2768 size ranges).
+
+    `upper_bounds` ascending; x exactly on a bound belongs to the lower interval, as in the
+    standards. Works in every Excel and LibreOffice (no array formula).
+    """
+    return f'INDEX({values},COUNTIF({upper_bounds},"<"&{x})+1)'
+
+
+def tol_text(upper: str, lower: str, dec: int = 2) -> str:
+    """Tolerance text for a dimension label: '±0.10', '+0.021/0', '-0.007/-0.020'."""
+    def signed(e: str) -> str:
+        return f'IF({e}=0,"0",IF({e}>0,"+","")&FIXED({e},{dec}))'
+
+    return (f'IF(ABS(({upper})+({lower}))<1e-6,"±"&FIXED({upper},{dec}),'
+            f'{signed(upper)}&"/"&{signed(lower)})')
+
+
 def _check_name(name: str) -> None:
     if not _NAME_RE.match(name) or _CELLISH_RE.match(name):
         raise ValueError(f"invalid defined name {name!r} (ASCII, no spaces, not cell-like)")
@@ -235,6 +264,21 @@ def _style_defs() -> list[NamedStyle]:
         ns("ec_banner", _font(size=12, bold=True), fill=C.NA_FILL, border=_box(C.NAVY, "medium"), h="centerContinuous"),
         ns("ec_kpi_label", _font(C.MUTED, size=9), fill=C.BLUE_XLT, h="centerContinuous"),
         ns("ec_kpi", _font(C.NAVY, size=18, bold=True), fill=C.BLUE_XLT, h="centerContinuous"),
+        # report sheet (style R)
+        ns("ec_rep_title", _font(C.NAVY, size=20, bold=True)),
+        ns("ec_rep_band", _font("FFFFFF", bold=True), fill=C.NAVY, h="centerContinuous"),
+        ns("ec_rep_sec", _font("FFFFFF", bold=True), fill=C.BLUE),
+        ns("ec_rep_label", _font(size=9), border=bottom),
+        ns("ec_rep_value", _font(bold=True), fill=C.META_FILL, border=bottom, h="right"),
+        ns("ec_rep_th", _font("FFFFFF", size=9, bold=True), fill=C.BLUE, h="centerContinuous"),
+        ns("ec_rep_td", _font(size=9), border=bottom, h="right"),
+        ns("ec_rep_total", _font(C.NAVY, bold=True), fill=C.BLUE_LT, border=Border(top=_side(C.NAVY, "medium")), h="right"),
+        ns("ec_rep_tile", _font(C.NAVY, size=12, bold=True), fill=C.BLUE_XLT, h="centerContinuous"),
+        ns("ec_rep_step", _font(C.NAVY, bold=True)),
+        ns("ec_rep_formula", Font(name="Cambria Math", size=10)),
+        ns("ec_rep_res", _font(bold=True), border=Border(bottom=_side(C.NAVY)), h="right"),
+        ns("ec_rep_status", _font(bold=True), h="centerContinuous"),
+        ns("ec_rep_note", _font(C.NOTE_FONT, size=9, italic=True)),
     ]
 
 
@@ -308,7 +352,7 @@ class Block:
 
 
 class EngWorkbook:
-    CHECKS = "80_Kontroly"
+    CHECKS = "80_Checks"
     README = "00_README"
 
     def __init__(self, meta: Meta) -> None:
@@ -318,6 +362,7 @@ class EngWorkbook:
             self.wb.add_named_style(st)
         self.names: dict[str, str] = {}  # name -> sheet title
         self.checks: list[CheckRecord] = []
+        self.check_keys: dict[str, CheckRecord] = {}  # check / condition name -> record (report steps)
         self.input_spans: dict[str, tuple[int, int]] = {}
         self.sheet_purpose: dict[str, str] = {}
         self._util_chart_requests: list[tuple[Worksheet, str, float, float]] = []
@@ -326,15 +371,16 @@ class EngWorkbook:
         self._readme.sheet_properties.tabColor = TAB["readme"]
         self._checks_ws = self.wb.create_sheet(self.CHECKS)
         self._checks_ws.sheet_properties.tabColor = TAB["checks"]
-        self.sheet_purpose[self.CHECKS] = "Registr všech posudků a podmínek, souhrnný stav, mez varování η"
+        self.sheet_purpose[self.CHECKS] = "Register of all checks and conditions, overall status, η warning limit"
         self._init_readme_meta()
         self._init_checks_config()
 
     # -- names ------------------------------------------------------------- #
     def define(self, name: str, ws: Worksheet, coord: str) -> None:
         _check_name(name)
-        if name in self.names:
-            raise ValueError(f"duplicate defined name {name!r}")
+        clash = next((n for n in self.names if n.lower() == name.lower()), None)
+        if clash:  # Excel names are case-insensitive: in_D and in_d are the same name
+            raise ValueError(f"defined name {name!r} collides with {clash!r} (names are case-insensitive)")
         ref = f"{quote_sheetname(ws.title)}!{absolute_coordinate(coord)}"
         self.wb.defined_names[name] = DefinedName(name, attr_text=ref)
         self.names[name] = ws.title
@@ -360,17 +406,23 @@ class EngWorkbook:
     def data_sheet(self, name: str, title: str, purpose: str) -> "DataSheet":
         return DataSheet(self, self._new_ws(name, TAB["data"], purpose), title)
 
+    def drawing_sheet(self, name: str, title: str, purpose: str) -> "DrawingSheet":
+        return DrawingSheet(self, self._new_ws(name, TAB["calc"], purpose), title)
+
+    def report_sheet(self, name: str, title: str, purpose: str, *, subtitle: str = "") -> "ReportSheet":
+        return ReportSheet(self, self._new_ws(name, TAB["report"], purpose), title, subtitle)
+
     # -- README ------------------------------------------------------------ #
     _META_ROWS = (
-        ("meta_project", "Projekt", "project"),
-        ("meta_title", "Výpočet", "title"),
-        ("meta_subject", "Předmět", "subject"),
-        ("meta_org", "Organizace", "organisation"),
-        ("meta_std", "Norma / metodika", "standard"),
-        ("meta_author", "Zpracoval", "author"),
-        ("meta_checker", "Kontroloval", "checker"),
-        ("meta_rev", "Revize", "revision"),
-        ("meta_date", "Datum", "date"),
+        ("meta_project", "Project", "project"),
+        ("meta_title", "Calculation", "title"),
+        ("meta_subject", "Subject", "subject"),
+        ("meta_org", "Organisation", "organisation"),
+        ("meta_std", "Standard / method", "standard"),
+        ("meta_author", "Prepared by", "author"),
+        ("meta_checker", "Checked by", "checker"),
+        ("meta_rev", "Revision", "revision"),
+        ("meta_date", "Date", "date"),
     )
 
     def _init_readme_meta(self) -> None:
@@ -383,9 +435,9 @@ class EngWorkbook:
         ws.column_dimensions["H"].width = 30
         ws["B1"] = "=meta_title&\"\""
         ws["B1"].font = _font(C.NAVY, size=16, bold=True)
-        ws["B2"] = "README · popis sešitu, rozsah platnosti, legenda, revize"
+        ws["B2"] = "README · workbook description, scope of validity, legend, revisions"
         ws["B2"].style = "ec_comment"
-        self._section(ws, 4, "Identifikace výpočtu")
+        self._section(ws, 4, "Calculation identification")
         for i, (name, label, attr) in enumerate(self._META_ROWS):
             r = 5 + i
             ws.cell(r, 2, label).style = "ec_label"
@@ -425,21 +477,21 @@ class EngWorkbook:
                 r += 1
             r += 1
 
-        para("Účel", [purpose], bullet="")
-        para("Rozsah platnosti", scope)
-        para("Předpoklady a omezení (mimo rozsah = nepoužívat)", assumptions)
-        para("Postup práce", [f"{i}. {s}" for i, s in enumerate(workflow, 1)], bullet="")
+        para("Purpose", [purpose], bullet="")
+        para("Scope of validity", scope)
+        para("Assumptions and limitations (outside scope = do not use)", assumptions)
+        para("Workflow", [f"{i}. {s}" for i, s in enumerate(workflow, 1)], bullet="")
 
-        self._section(ws, r, "Legenda buněk")
+        self._section(ws, r, "Cell legend")
         r += 1
         legend = (
-            ("ec_input", 12.5, "Ruční vstup — jediné buňky, do kterých se zapisuje (odemčené)"),
-            ("ec_select", "S235", "Výběr ze seznamu (ověření dat → číselník)"),
-            ("ec_const", 1.35, "Konstanta / hodnota z normy — neměnit bez revize"),
-            ("ec_calc", 42.0, "Vzorec na tomtéž listu"),
-            ("ec_link", 42.0, "Vzorec čerpající z jiného listu (pojmenovaná oblast)"),
-            ("ec_aux", 0.25, "Pomocný mezivýpočet"),
-            ("ec_result", 99.9, "Klíčový výsledek"),
+            ("ec_input", 12.5, "Manual input — the only cells you type into (unlocked)"),
+            ("ec_select", "S235", "Selection from a list (data validation → lookup table)"),
+            ("ec_const", 1.35, "Constant / value from a standard — do not change without a revision"),
+            ("ec_calc", 42.0, "Formula on the same sheet"),
+            ("ec_link", 42.0, "Formula reading another sheet (named range)"),
+            ("ec_aux", 0.25, "Auxiliary intermediate result"),
+            ("ec_result", 99.9, "Key result"),
         )
         for style, sample, text in legend:
             ws.cell(r, 2).value = sample
@@ -447,9 +499,9 @@ class EngWorkbook:
             ws.cell(r, 3, text).style = "ec_label"
             r += 1
         for status, text in (
-            (f"{OK} VYHOVUJE", "Podmínka splněna, η ≤ mez varování"),
-            (f"{WARN} VYHOVUJE – malá rezerva", "mez varování < η ≤ 1,00"),
-            (f"{FAIL} NEVYHOVUJE", "η > 1,00, nesplněná podmínka nebo vstup mimo rozsah"),
+            (f"{OK} OK", "Condition met, η ≤ warning limit"),
+            (f"{WARN} OK – low reserve", "warning limit < η ≤ 1.00"),
+            (f"{FAIL} FAILS", "η > 1.00, condition not met or input out of range"),
         ):
             c = ws.cell(r, 2, status)
             c.style = "ec_status"
@@ -458,7 +510,7 @@ class EngWorkbook:
             r += 1
         r += 1
 
-        self._section(ws, r, "Obsah sešitu")
+        self._section(ws, r, "Contents")
         r += 1
         for ws_ in self.wb.worksheets:
             if ws_.title == self.README:
@@ -468,11 +520,11 @@ class EngWorkbook:
             ws.cell(r, 3, self.sheet_purpose.get(ws_.title, "")).style = "ec_label"
             r += 1
         r += 1
-        para("Zdroje", sources)
+        para("Sources", sources)
 
-        self._section(ws, r, "Revizní log")
+        self._section(ws, r, "Revision log")
         r += 1
-        heads = ("Datum", "Revize", "Změna", "Zpracoval", "Kontroloval")
+        heads = ("Date", "Revision", "Change", "Prepared by", "Checked by")
         cols = (2, 3, 4, 7, 8)
         for col, h in zip(cols, heads):
             ws.cell(r, col, h).style = "ec_colhead"
@@ -488,15 +540,15 @@ class EngWorkbook:
     # -- checks register --------------------------------------------------- #
     def _init_checks_config(self) -> None:
         ws = self._checks_ws
-        _scaffold(self, ws, "Registr posudků", columns=False)
-        ws.cell(8, COL["label"], "Mez varování η (nad ní ▲ malá rezerva)").style = "ec_label"
+        _scaffold(self, ws, "Check register", columns=False)
+        ws.cell(8, COL["label"], "η warning limit (above it ▲ low reserve)").style = "ec_label"
         ws.cell(8, COL["sym"], "η_warn =").style = "ec_symbol"
         c = ws.cell(8, COL["val"], 0.9)
         c.style = "ec_input"
         c.number_format = "0.00"
         dv = DataValidation(type="decimal", operator="between", formula1="0.5", formula2="1",
-                            showErrorMessage=True, errorTitle="Mimo rozsah",
-                            error="Zadej 0,50 … 1,00", promptTitle="η_warn", prompt="0,50 … 1,00")
+                            showErrorMessage=True, errorTitle="Out of range",
+                            error="Enter 0.50 … 1.00", promptTitle="η_warn", prompt="0.50 … 1.00")
         ws.add_data_validation(dv)
         dv.add(c.coordinate)
         ws.cell(8, COL["unit"], "–").style = "ec_unit"
@@ -504,7 +556,7 @@ class EngWorkbook:
 
     def _build_checks(self) -> None:
         ws = self._checks_ws
-        heads = ("#", "Posudek / podmínka", "Symbol", "η [–]", "Stav", "List", "Odkaz", "fail", "warn")
+        heads = ("#", "Check / condition", "Symbol", "η [–]", "Status", "Sheet", "Link", "fail", "warn")
         hr = 10
         for i, h in enumerate(heads):
             ws.cell(hr, 2 + i, h).style = "ec_colhead"
@@ -518,9 +570,9 @@ class EngWorkbook:
             rows.append((rec.label, rec.symbol, eta, f"={q}!$I${rec.row}", rec.sheet + "|" + str(rec.row)))
         for sheet, (a, b) in self.input_spans.items():
             q = quote_sheetname(sheet)
-            status = (f'=IF(COUNTIF({q}!$I${a}:$I${b},"{FAIL}*")=0,"{OK} všechny vstupy v mezích",'
-                      f'"{FAIL} vstupy mimo rozsah: "&COUNTIF({q}!$I${a}:$I${b},"{FAIL}*"))')
-            rows.append((f"Vstupy listu {sheet} v povolených mezích", "", f'="{NA}"', status, f"{sheet}|{a}"))
+            status = (f'=IF(COUNTIF({q}!$I${a}:$I${b},"{FAIL}*")=0,"{OK} all inputs within limits",'
+                      f'"{FAIL} inputs out of range: "&COUNTIF({q}!$I${a}:$I${b},"{FAIL}*"))')
+            rows.append((f"Inputs of sheet {sheet} within allowed limits", "", f'="{NA}"', status, f"{sheet}|{a}"))
         for i, (label, sym, eta, status, link) in enumerate(rows, 1):
             sheet, row = link.split("|")
             ws.cell(r, 2, i).style = "ec_unit"
@@ -531,7 +583,7 @@ class EngWorkbook:
             e.number_format = "0.00"
             ws.cell(r, 6, status).style = "ec_status"
             ws.cell(r, 7, sheet).style = "ec_unit"
-            ws.cell(r, 8, f'=HYPERLINK("#{quote_sheetname(sheet)}!C{row}","→ ř. {row}")').font = _font(C.BLUE)
+            ws.cell(r, 8, f'=HYPERLINK("#{quote_sheetname(sheet)}!C{row}","→ row {row}")').font = _font(C.BLUE)
             ws.cell(r, 9, f'=IF(LEFT(F{r},1)="{FAIL}",1,0)').style = "ec_aux"
             ws.cell(r, 10, f'=IF(LEFT(F{r},1)="{WARN}",1,0)').style = "ec_aux"
             r += 1
@@ -547,7 +599,7 @@ class EngWorkbook:
         )
         for col, w in zip("ABCDEFGHIJ", (1.5, 5, 46, 10, 10, 30, 12, 10, 6, 6)):
             ws.column_dimensions[col].width = w
-        ws.cell(r + 1, 3, "η = využití (poměr účinek / odolnost); fail/warn = příznaky pro souhrnný stav").style = "ec_comment"
+        ws.cell(r + 1, 3, "η = utilisation (effect / resistance); fail/warn = flags for the overall status").style = "ec_comment"
         _page_setup(ws, f"A1:J{r + 1}", title_rows="1:7")
 
     def _build_util_charts(self) -> None:
@@ -559,14 +611,14 @@ class EngWorkbook:
             return
         ws = self._checks_ws
         lim_col = 12
-        ws.cell(10, lim_col, "mez").style = "ec_colhead"
+        ws.cell(10, lim_col, "limit").style = "ec_colhead"
         for r in range(first, first + n_numeric):
             ws.cell(r, lim_col, 1).style = "ec_const"
         for target, anchor, w, h in self._util_chart_requests:
             bar = BarChart()
             bar.type = "bar"
             bar.style = 2
-            bar.title = "Využití posudků η"
+            bar.title = "Check utilisation η"
             bar.y_axis.title = "η [–]"
             bar.y_axis.scaling.min = 0
             bar.y_axis.scaling.max = 1.2
@@ -577,6 +629,8 @@ class EngWorkbook:
             s.graphicalProperties.solidFill = C.BLUE
             s.graphicalProperties.line.noFill = True
             bar.legend = None
+            bar.layout = Layout(manualLayout=ManualLayout(layoutTarget="inner", xMode="edge", yMode="edge",
+                                                          x=0.14, y=0.14, w=0.82, h=0.68))
             bar.x_axis.delete = False
             bar.y_axis.delete = False
             bar.width, bar.height = w, h
@@ -630,19 +684,19 @@ def _scaffold(book: EngWorkbook, ws: Worksheet, title: str, *, columns: bool = T
         for col in (b, c):
             ws.cell(r, col).fill = _fill(accent)
     ws.cell(1, b, "=meta_org&\"\"").font = _font("FFFFFF", size=11, bold=True)
-    ws.cell(2, b, "Inženýrský výpočet").font = _font("FFFFFF", size=9)
+    ws.cell(2, b, "Engineering calculation").font = _font("FFFFFF", size=9)
     ws.cell(3, b, "=meta_std&\"\"").font = _font("FFFFFF", size=8, italic=True)
-    ws.cell(4, b, '="Revize "&meta_rev').font = _font("FFFFFF", size=8)
-    meta(1, d, "Projekt", e, "=meta_project&\"\"", g)
-    meta(2, d, "Výpočet", e, "=meta_title&\"\"", g)
+    ws.cell(4, b, '="Revision "&meta_rev').font = _font("FFFFFF", size=8)
+    meta(1, d, "Project", e, "=meta_project&\"\"", g)
+    meta(2, d, "Calculation", e, "=meta_title&\"\"", g)
     ws.cell(2, e).font = _font(C.NAVY, size=12, bold=True)
-    meta(3, d, "List", e, f'="{title}"', g)
-    meta(4, d, "Předmět", e, "=meta_subject&\"\"", g)
-    meta(1, h, "List č.", i, fx('=SHEET()&" / "&SHEETS()'), i)
-    meta(2, h, "Datum", i, "=meta_date", i)
+    meta(3, d, "Sheet", e, f'="{title}"', g)
+    meta(4, d, "Subject", e, "=meta_subject&\"\"", g)
+    meta(1, h, "Sheet no.", i, fx('=SHEET()&" / "&SHEETS()'), i)
+    meta(2, h, "Date", i, "=meta_date", i)
     ws.cell(2, i).number_format = "yyyy-mm-dd"
-    meta(3, h, "Zpracoval", i, "=meta_author&\"\"", i)
-    meta(4, h, "Kontroloval", i, "=meta_checker&\"\"", i)
+    meta(3, h, "Prepared by", i, "=meta_author&\"\"", i)
+    meta(4, h, "Checked by", i, "=meta_checker&\"\"", i)
     for col in range(b, i + 1):
         ws.cell(4, col).border = Border(bottom=_side(C.NAVY, "medium"))
         ws.cell(1, col).border = Border(top=_side(C.NAVY, "medium"))
@@ -655,26 +709,31 @@ def _scaffold(book: EngWorkbook, ws: Worksheet, title: str, *, columns: bool = T
 
     # banner
     ws.row_dimensions[5].height = 26
-    banner = ws.cell(5, b, (
-        f'=IF(SUM(chk_fail)>0,"{FAIL} NEVYHOVUJE – počet nesplněných podmínek: "&SUM(chk_fail),'
-        f'IF(SUM(chk_warn)>0,"{WARN} VYHOVUJE S MALOU REZERVOU – posudků: "&SUM(chk_warn),'
-        f'"{OK} VŠECHNY POSUDKY A PODMÍNKY VYHOVUJÍ"))'
-        f'&"     η max = "&IF(COUNT(chk_eta)>0,FIXED(MAX(chk_eta),2),"{NA}")'
-    ))
+    banner = ws.cell(5, b, _banner_formula())
     for col in range(b, i + 1):
         ws.cell(5, col).style = "ec_banner"
     _status_rules(ws, f"{get_column_letter(b)}5:{get_column_letter(i)}5", f"${get_column_letter(b)}$5")
     del banner
     ws.cell(6, b, (
-        "Zadávej jen do žlutých buněk (modré písmo) · modrozelené = výběr ze seznamu · fialové = hodnota z normy · "
-        f"{OK} vyhovuje  {WARN} malá rezerva  {FAIL} nevyhovuje"
+        "Type only into yellow cells (blue font) · teal = pick from list · purple = value from a standard · "
+        f"{OK} OK  {WARN} low reserve  {FAIL} fails"
     )).style = "ec_comment"
     if columns:
-        for key, text in (("id", "#"), ("label", "Veličina"), ("sym", "Symbol"), ("val", "Hodnota"),
-                          ("unit", "Jedn."), ("text", "Vztah / podmínka"), ("src", "Zdroj / norma"),
-                          ("stat", "Mez / stav")):
+        for key, text in (("id", "#"), ("label", "Quantity"), ("sym", "Symbol"), ("val", "Value"),
+                          ("unit", "Unit"), ("text", "Relation / condition"), ("src", "Source / standard"),
+                          ("stat", "Limit / status")):
             ws.cell(HEADER_ROWS, COL[key], text).style = "ec_colhead"
         ws.freeze_panes = ws.cell(HEADER_ROWS + 1, 1)
+
+
+def _banner_formula(short: bool = False) -> str:
+    """Overall status from the register totals; `short` for the narrow report status panel."""
+    fail, warn, ok, sep = (("FAILS: ", "LOW RESERVE: ", "OK", "   ") if short else
+                           ("FAILS – conditions not met: ", "OK WITH LOW RESERVE – checks: ",
+                            "ALL CHECKS AND CONDITIONS SATISFIED", "     "))
+    return (f'=IF(SUM(chk_fail)>0,"{FAIL} {fail}"&SUM(chk_fail),'
+            f'IF(SUM(chk_warn)>0,"{WARN} {warn}"&SUM(chk_warn),"{OK} {ok}"))'
+            f'&"{sep}η max = "&IF(COUNT(chk_eta)>0,FIXED(MAX(chk_eta),2),"{NA}")')
 
 
 def _page_setup(ws: Worksheet, area: str, *, title_rows: str | None, landscape: bool = False) -> None:
@@ -690,7 +749,7 @@ def _page_setup(ws: Worksheet, area: str, *, title_rows: str | None, landscape: 
     ws.page_margins.top = ws.page_margins.bottom = 0.5
     ws.oddFooter.left.text = "&8&F"
     ws.oddFooter.center.text = "&8&A"
-    ws.oddFooter.right.text = "&8Strana &P / &N"
+    ws.oddFooter.right.text = "&8Page &P / &N"
     ws.print_options.horizontalCentered = True
 
 
@@ -753,7 +812,7 @@ class CalcSheet:
     # -- quantities --------------------------------------------------------- #
     def input(self, key: str, label: str, symbol: str, value: Scalar, unit: str, *,
               lo: float | None = None, hi: float | None = None, choices: str | None = None,
-              fmt: str = "0.00", source: str = "zadání") -> Cell:
+              fmt: str = "0.00", source: str = "brief") -> Cell:
         """Manual input. Numeric inputs need lo/hi; selection inputs need a list name (lst_*)."""
         self._row_frame(label, symbol, unit, source)
         cell = self._cell("val", value, "ec_select" if choices else "ec_input")
@@ -763,21 +822,21 @@ class CalcSheet:
             if choices not in self.book.names:
                 raise KeyError(f"list name {choices!r} not defined yet (DataSheet.table first)")
             dv = DataValidation(type="list", formula1=f"={choices}", allow_blank=False, showErrorMessage=True,
-                                errorTitle="Neplatná volba", error="Vyber hodnotu ze seznamu",
-                                promptTitle=symbol or label[:30], prompt="Výběr ze seznamu", showInputMessage=True)
-            self._cell("text", "výběr ze seznamu", "ec_comment")
-            status = f'=IF(ISNUMBER(MATCH({ref},{choices},0)),"{OK} ze seznamu","{FAIL} není v seznamu")'
+                                errorTitle="Invalid choice", error="Pick a value from the list",
+                                promptTitle=symbol or label[:30], prompt="Pick from the list", showInputMessage=True)
+            self._cell("text", "pick from list", "ec_comment")
+            status = f'=IF(ISNUMBER(MATCH({ref},{choices},0)),"{OK} from list","{FAIL} not in list")'
         elif lo is not None and hi is not None:
             if lo > hi:
                 raise ValueError(f"{key}: lo > hi")
             dv = DataValidation(type="decimal", operator="between", formula1=repr(float(lo)), formula2=repr(float(hi)),
-                                showErrorMessage=True, errorTitle="Mimo rozsah platnosti",
-                                error=f"{symbol or label}: povoleno {lo:g} … {hi:g} {unit}",
+                                showErrorMessage=True, errorTitle="Outside scope of validity",
+                                error=f"{symbol or label}: allowed {lo:g} … {hi:g} {unit}",
                                 promptTitle=(symbol or label)[:32], prompt=f"{lo:g} … {hi:g} {unit}",
                                 showInputMessage=True)
             self._cell("text", f"⟨{lo:g} ; {hi:g}⟩ {unit}", "ec_comment")
             status = (f'=IF(AND(ISNUMBER({ref}),{ref}>={lo!r},{ref}<={hi!r}),'
-                      f'"{OK} v mezích","{FAIL} mimo rozsah")')
+                      f'"{OK} within limits","{FAIL} out of range")')
         else:
             raise ValueError(f"input {key!r} needs lo/hi or choices — every input must be bounded")
         self.ws.add_data_validation(dv)
@@ -836,11 +895,13 @@ class CalcSheet:
         u = f" {unit}" if unit else ""
         self.ws.cell(self.r, COL["text"], f'=FIXED({v},{dec})&" {op} "&FIXED({lim},{dec})&"{u}"')
         self._cell("stat", (
-            f'=IF(NOT(ISNUMBER({e})),"{FAIL} NELZE VYHODNOTIT",IF({e}>1,"{FAIL} NEVYHOVUJE",'
-            f'IF({e}>cfg_eta_warn,"{WARN} VYHOVUJE – malá rezerva","{OK} VYHOVUJE")))'
+            f'=IF(NOT(ISNUMBER({e})),"{FAIL} CANNOT EVALUATE",IF({e}>1,"{FAIL} FAILS",'
+            f'IF({e}>cfg_eta_warn,"{WARN} OK – low reserve","{OK} OK")))'
         ), "ec_status")
         self.book.define(key, self.ws, cell.coordinate)
-        self.book.checks.append(CheckRecord(self.ws.title, self.r, label, symbol, True))
+        rec = CheckRecord(self.ws.title, self.r, label, symbol, True)
+        self.book.checks.append(rec)
+        self.book.check_keys[key] = rec
         self.r += 1
         return cell
 
@@ -849,17 +910,19 @@ class CalcSheet:
         """Boolean validity condition (scope of the method, regime, required assumption)."""
         cond = fx(condition)[1:]
         self._row_frame(label, "", "", source)
-        self._cell("val", f'=IF({cond},"ANO","NE")', "ec_calc")
+        self._cell("val", f'=IF({cond},"YES","NO")', "ec_calc")
         if text:
             self.ws.cell(self.r, COL["text"], text)
         cell = self._cell("stat", f'=IF({cond},"{OK} {ok}","{FAIL} {fail}")', "ec_status")
         self.book.define(key, self.ws, cell.coordinate)
-        self.book.checks.append(CheckRecord(self.ws.title, self.r, label, "", False))
+        rec = CheckRecord(self.ws.title, self.r, label, "", False)
+        self.book.checks.append(rec)
+        self.book.check_keys[key] = rec
         self.r += 1
         return cell
 
     def remark(self, label: str, formula: str) -> Cell:
-        """Dynamic engineering remark (regime / interpretation), e.g. IF(Re>4000,"turbulentní",…)."""
+        """Dynamic engineering remark (regime / interpretation), e.g. IF(Re>4000,"turbulent",…)."""
         self._cell("id", "", "ec_unit")
         self._cell("label", label, "ec_label")
         self._cell("sym", "→", "ec_symbol")
@@ -945,7 +1008,7 @@ class DataSheet:
             raise ValueError(f"table {name!r} is empty")
         ws = self.ws
         ws.cell(self.r, 2, f"tbl_{name}").font = _font(C.NAVY, bold=True)
-        ws.cell(self.r + 1, 2, f"Zdroj: {source}").style = "ec_source"
+        ws.cell(self.r + 1, 2, f"Source: {source}").style = "ec_source"
         hr = self.r + 2
         for j, col in enumerate(cols):
             ws.cell(hr, 2 + j, col.header)
@@ -1000,6 +1063,43 @@ class DataSheet:
         self.r = last + 3
         return Block(ws, hr + 1, last, colmap)
 
+    def hatch(self, name: str, x0: str, x1: str, y0: str, y1: str, *, spacing: str,
+              side: Literal["lower", "upper"] = "lower", n: int = 40) -> Block:
+        """Live 45° section hatching of the rectangle ⟨x0;x1⟩ × ⟨y0;y1⟩ (formulas, drawing units).
+
+        One chart series draws the whole hatch: each line y = x + k is drawn there and back,
+        and the moves to the next line run along two rectangle edges — `side="lower"` uses the
+        bottom and left edges, `"upper"` the top and right edges. Pick the side whose edges are
+        visible outline of the part (not an edge shared with the neighbouring rectangle), so
+        the moves hide under the outline. Spacing grows when more than n lines would be needed.
+        Returns the path block (columns x, y) for `drawing_chart`.
+        """
+        p = f"gd_{name}_rect_"
+        self.block(f"{name}_rect", [Col(k, k, "0.00") for k in ("x0", "x1", "y0", "y1", "kmin", "kmax", "s")], [(
+            f"={x0}", f"={x1}", f"={y0}", f"={y1}", f"={p}y0-{p}x1", f"={p}y1-{p}x0",
+            f"=MAX({spacing},({p}kmax-{p}kmin)/{n})",
+        )], note=f"Hatched rectangle; hatch lines y = x + k, k from kmin to kmax with step s (at most {n} lines)")
+        first = self.r + 3
+        lines = []
+        for j in range(1, n + 1):
+            r = first + j - 1
+            lines.append((j, f"=MIN({p}kmax,{p}kmin+B{r}*{p}s)", f"=MAX({p}x0,{p}y0-C{r})", f"=D{r}+C{r}",
+                          f"=MIN({p}x1,{p}y1-C{r})", f"=F{r}+C{r}"))
+        self.block(f"{name}_lines", [Col("j", "j", "0"), Col("k", "k", "0.00"), Col("xl", "x lower", "0.00"),
+                                      Col("yl", "y lower", "0.00"), Col("xu", "x upper", "0.00"),
+                                      Col("yu", "y upper", "0.00")], lines,
+                   note="Intersections of each hatch line with the rectangle (lower / upper end)")
+        path: list[tuple[str, str]] = []
+        for j in range(n):
+            r, nxt = first + j, first + min(j + 1, n - 1)
+            low, up = (f"=D{r}", f"=E{r}"), (f"=F{r}", f"=G{r}")
+            if side == "lower":  # corner between two lower ends = (min x, min y)
+                path += [low, up, low, (f"=MIN(D{r},D{nxt})", f"=MIN(E{r},E{nxt})")]
+            else:  # corner between two upper ends = (max x, max y)
+                path += [up, low, up, (f"=MAX(F{r},F{nxt})", f"=MAX(G{r},G{nxt})")]
+        return self.block(f"{name}_path", [Col("x", "x", "0.00"), Col("y", "y", "0.00")], path,
+                          note=f"Hatch path: each line there and back, moves along the {side} edges of the rectangle")
+
     def close(self) -> None:
         _page_setup(self.ws, f"A1:{get_column_letter(self._max_col + 1)}{self.r}", title_rows=None, landscape=True)
 
@@ -1051,6 +1151,414 @@ class Dashboard:
 
     def close(self, last_row: int) -> None:
         _page_setup(self.ws, f"A1:{get_column_letter(COL['margin_r'])}{last_row}", title_rows=None)
+
+
+class DrawingSheet(Dashboard):
+    """Part drawing page: live section / view charts, GD&T frames, title block (ISO 7200)."""
+
+    def gdt_frame(self, row: int, col: int, symbol: str, value: str, datum: str = "", note: str = "") -> None:
+        """Feature control frame as three boxed cells: symbol | tolerance (formula) | datum."""
+        for k, v in enumerate((symbol, fx(value) if value.startswith("=") else value, datum)):
+            c = self.ws.cell(row, col + k, v)
+            c.border = _box(C.NAVY, "medium")
+            c.alignment = Alignment(horizontal="center", vertical="center")
+            c.font = _font(C.NAVY, size=12 if k == 0 else 10, bold=k != 1)
+        if note:
+            self.ws.cell(row, col + 3, note).style = "ec_comment"
+
+    def title_block(self, row: int, col: int, fields: Sequence[tuple[str, str]], *, width: int = 4) -> int:
+        """Title block: (label, value or formula) pairs, `width` fields per row. Returns next free row."""
+        for k, (label, value) in enumerate(fields):
+            r, c = row + 2 * (k // width), col + 2 * (k % width)
+            lab = self.ws.cell(r, c, label)
+            lab.style = "ec_meta_label"
+            val = self.ws.cell(r + 1, c, fx(value) if value.startswith("=") else value)
+            val.style = "ec_meta"
+            for cell in (lab, val, self.ws.cell(r, c + 1), self.ws.cell(r + 1, c + 1)):
+                left = _side(C.NAVY, "medium") if cell.column == c else None
+                cell.border = Border(left=left, top=_side(C.NAVY) if cell.row == r else None,
+                                     bottom=_side(C.NAVY) if cell.row == r + 1 else None)
+        rows = 2 * ((len(fields) + width - 1) // width)
+        for c in range(col, col + 2 * width):
+            self.ws.cell(row, c).border = Border(top=_side(C.NAVY, "medium"), left=self.ws.cell(row, c).border.left)
+            last = self.ws.cell(row + rows - 1, c)
+            last.border = Border(bottom=_side(C.NAVY, "medium"), left=last.border.left)
+        return row + rows
+
+
+# --------------------------------------------------------------------------- #
+# Report sheet (style R — printable calculation report / data sheet)
+# --------------------------------------------------------------------------- #
+
+REPORT_COLS = 12  # content columns B..M of the report grid
+REPORT_W = 8.0  # width of one report column (characters, ≈ 61 px)
+_REPORT_PX = 61
+_SUBST_RE = re.compile(r"\{([^{}:]+)(?::(\d+))?\}")
+
+
+def subst(template: str, dec: int = 2) -> str:
+    """Substituted values as text: '{calc_qEd}·{in_L:1}²/8' → FIXED(calc_qEd,2,TRUE)&"·"&FIXED(in_L,1,TRUE)&"²/8".
+
+    Placeholders are names or expressions, optionally with decimals after a colon. Returns an
+    Excel string expression without the leading '=' (the substitution line of a report step).
+    """
+    def lit(text: str) -> str:
+        return '"' + text.replace('"', '""') + '"'
+
+    parts: list[str] = []
+    pos = 0
+    for m in _SUBST_RE.finditer(template):
+        if m.start() > pos:
+            parts.append(lit(template[pos:m.start()]))
+        parts.append(f"FIXED({m.group(1)},{m.group(2) or dec},TRUE)")
+        pos = m.end()
+    if pos < len(template):
+        parts.append(lit(template[pos:]))
+    return "&".join(parts) or '""'
+
+
+def _val(v: Scalar) -> Scalar:
+    return fx(v) if isinstance(v, str) and v.startswith("=") else v
+
+
+class ReportSheet:
+    """Printable calculation report / data sheet (style R), A4 portrait on a 12-column grid.
+
+    Blocks flow in two halves side by side (`at="left"` columns B–G, `at="right"` H–M) or
+    across the full width (`at="full"`, starts below both halves). References only: every
+    value is a formula reading a named quantity from a calc sheet — the report adds layout,
+    relations with substituted values, tables and signatures, never logic.
+    """
+
+    SPANS: dict[str, tuple[int, int]] = {"left": (2, 7), "right": (8, 13), "full": (2, 13)}
+
+    def __init__(self, book: EngWorkbook, ws: Worksheet, title: str, subtitle: str = "") -> None:
+        self.book, self.ws, self.title = book, ws, title
+        self._sec = 0
+        self._item = 0
+        ws.sheet_view.showGridLines = False
+        ws.column_dimensions["A"].width = 1.5
+        ws.column_dimensions[get_column_letter(REPORT_COLS + 2)].width = 1.5
+        for c in range(2, REPORT_COLS + 2):
+            ws.column_dimensions[get_column_letter(c)].width = REPORT_W
+        ws.cell(1, 2, title.upper()).style = "ec_rep_title"
+        org = ws.cell(1, REPORT_COLS + 1, '=meta_org&""')
+        org.font = _font(DOMAIN_ACCENT[book.meta.domain], size=11, bold=True)
+        org.alignment = Alignment(horizontal="right", vertical="center")
+        ws.row_dimensions[1].height = 30
+        for c in range(2, REPORT_COLS + 2):
+            ws.cell(2, c).style = "ec_rep_band"
+        ws.cell(2, 2, subtitle or '=meta_subject&""')
+        ws.row_dimensions[2].height = 20
+        self._next = {"left": 4, "right": 4}
+        self.fields([("Project", '=meta_project&""', "", "@"), ("Calculation", '=meta_title&""', "", "@"),
+                     ("Standard / method", '=meta_std&""', "", "@")], at="left", label_cols=2)
+        iso = 'YEAR(meta_date)&"-"&RIGHT("0"&MONTH(meta_date),2)&"-"&RIGHT("0"&DAY(meta_date),2)'
+        self.fields([("Date", f"=IF(ISNUMBER(meta_date),{iso},meta_date&\"\")", "", "@"), ("Revision", '=meta_rev&""', "", "@"),
+                     ("Prepared by", '=meta_author&""', "", "@"), ("Checked by", '=meta_checker&""', "", "@")],
+                    at="right", label_cols=2)
+
+    # -- flow --------------------------------------------------------------- #
+    def _at(self, at: Place) -> tuple[int, int, int]:
+        c0, c1 = self.SPANS[at]
+        return (max(self._next.values()) if at == "full" else self._next[at]), c0, c1
+
+    def _done(self, at: Place, row: int, gap: int = 1) -> None:
+        if at == "full":
+            self._next = {"left": row + gap, "right": row + gap}
+        else:
+            self._next[at] = row + gap
+
+    def _image(self, data: bytes, row: int, col: int, width_px: int | None) -> int:
+        """Place a PNG at (row, col); returns the number of rows it covers."""
+        from PIL import Image as PILImage
+
+        with PILImage.open(io.BytesIO(data)) as im:
+            w, h = im.size
+            dpi = im.info.get("dpi", (96, 96))[0] or 96
+        w, h = w * 96.0 / float(dpi), h * 96.0 / float(dpi)
+        if width_px and w > width_px:
+            h, w = h * width_px / w, width_px
+        img = XLImage(io.BytesIO(data))
+        img.width, img.height = int(w), int(h)
+        self.ws.add_image(img, f"{get_column_letter(col)}{row}")
+        return max(1, int(h / 20) + 1)
+
+    def page_break(self) -> None:
+        """Start a new printed page below everything placed so far."""
+        row = max(self._next.values())
+        self.ws.row_breaks.append(Break(id=row - 1))
+
+    # -- blocks ------------------------------------------------------------- #
+    def section(self, title: str, *, at: Place = "full", unit: str = "") -> None:
+        """Section band; full-width sections are numbered and number the steps below them."""
+        r, c0, c1 = self._at(at)
+        text = title.upper() + (f"  ({unit})" if unit else "")
+        if at == "full":
+            self._sec += 1
+            self._item = 0
+            text = f"{self._sec}   {text}"
+        for c in range(c0, c1 + 1):
+            self.ws.cell(r, c).style = "ec_rep_sec"
+        self.ws.cell(r, c0, text)
+        self.ws.row_dimensions[r].height = 18
+        self._done(at, r + 1, gap=0)
+
+    def fields(self, rows: Sequence[tuple[str, str, str, str]], *, at: Place = "left",
+               label_cols: int | None = None, title: str = "") -> None:
+        """Label | value | unit rows: (label, formula, unit, number format; "@" = text, left aligned)."""
+        if title:
+            self.section(title, at=at)
+        r, c0, c1 = self._at(at)
+        lc = label_cols or (c1 - c0 + 1) // 2
+        for label, formula, unit, fmt in rows:
+            for c in range(c0, c1 + 1):
+                self.ws.cell(r, c).style = "ec_rep_label" if c < c0 + lc else "ec_rep_value"
+            self.ws.cell(r, c0, label)
+            if fmt == "@":
+                v = self.ws.cell(r, c0 + lc, _val(formula))
+                v.alignment = Alignment(horizontal="left", vertical="center")
+            else:
+                v = self.ws.cell(r, c1 - 1, _val(formula))
+                v.number_format = fmt
+            if unit:
+                u = self.ws.cell(r, c1, unit)
+                u.font = _font(C.MUTED, size=9)
+                u.alignment = Alignment(horizontal="left", vertical="center")
+            r += 1
+        self._done(at, r)
+
+    def panel(self, label: str, formula: str, unit: str = "", fmt: str = "0.00", *, at: Place = "right",
+              tiles: Sequence[tuple[str, str, str]] = ()) -> None:
+        """Highlighted key result (big number) with up to 3 small tiles below: (label, formula, format)."""
+        r, c0, c1 = self._at(at)
+        for rr, st in ((r, "ec_kpi_label"), (r + 1, "ec_kpi"), (r + 2, "ec_kpi_label")):
+            for c in range(c0, c1 + 1):
+                self.ws.cell(rr, c).style = st
+        for c in range(c0, c1 + 1):
+            self.ws.cell(r, c).border = Border(top=_side(C.NAVY, "medium"))
+        self.ws.cell(r, c0, label)
+        self.ws.cell(r + 1, c0, _val(formula)).number_format = fmt
+        self.ws.cell(r + 2, c0, unit)
+        self.ws.row_dimensions[r + 1].height = 28
+        r += 3
+        if tiles:
+            w = (c1 - c0 + 1) // len(tiles)
+            for k, (lab, f, ft) in enumerate(tiles):
+                a = c0 + k * w
+                b = c1 if k == len(tiles) - 1 else a + w - 1
+                for c in range(a, b + 1):
+                    self.ws.cell(r, c).style = "ec_rep_th"
+                    self.ws.cell(r + 1, c).style = "ec_rep_tile"
+                self.ws.cell(r, a, lab)
+                self.ws.cell(r + 1, a, _val(f)).number_format = ft
+            self.ws.row_dimensions[r + 1].height = 22
+            r += 2
+        self._done(at, r)
+
+    def status(self, *, at: Place = "right") -> None:
+        """DESIGN STATUS: overall result from the check register, coloured ✔ / ▲ / ✘."""
+        r, c0, c1 = self._at(at)
+        for c in range(c0, c1 + 1):
+            self.ws.cell(r, c).style = "ec_kpi_label"
+            self.ws.cell(r + 1, c).style = "ec_banner"
+        self.ws.cell(r, c0, "DESIGN STATUS")
+        self.ws.cell(r + 1, c0, _banner_formula(short=True))
+        a, b = get_column_letter(c0), get_column_letter(c1)
+        _status_rules(self.ws, f"{a}{r + 1}:{b}{r + 1}", f"${a}${r + 1}")
+        self.ws.row_dimensions[r + 1].height = 24
+        self._done(at, r + 2)
+
+    def table(self, cols: Sequence[Col], rows: Sequence[Sequence[Scalar]], *, at: Place = "full",
+              spans: Sequence[int] | None = None, total: dict[str, str] | None = None,
+              total_label: str = "Total", title: str = "") -> tuple[int, int]:
+        """Printable data table: header band, striped rows, optional total row.
+
+        `spans` = report columns per table column (default: even split of the block width);
+        `total` = {column key: "SUM" | "MAX" | "MIN" | "AVERAGE" | "=formula"}. Text columns
+        (fmt "@") are left aligned, numbers right aligned. Returns the first and last data row.
+        """
+        if title:
+            self.section(title, at=at)
+        r, c0, c1 = self._at(at)
+        width = c1 - c0 + 1
+        if spans is None:
+            base = width // len(cols)
+            spans = [base + (width - base * len(cols) if j == 0 else 0) for j in range(len(cols))]
+        if len(spans) != len(cols) or sum(spans) != width:
+            raise ValueError(f"table spans {list(spans)} must give {len(cols)} columns summing to {width}")
+        starts = list(accumulate([c0, *spans[:-1]]))
+
+        def put(row: int, j: int, value: Scalar, fmt: str) -> None:
+            text = fmt == "@"
+            cell = self.ws.cell(row, starts[j] if text else starts[j] + spans[j] - 1, _val(value))
+            if not text:
+                cell.number_format = fmt
+            cell.alignment = Alignment(horizontal="left" if text else "right", vertical="center", indent=1)
+
+        for c in range(c0, c1 + 1):
+            self.ws.cell(r, c).style = "ec_rep_th"
+        for j, col in enumerate(cols):
+            self.ws.cell(r, starts[j], col.header)
+        self.ws.row_dimensions[r].height = 18
+        r += 1
+        first = r
+        for i, row in enumerate(rows):
+            if len(row) != len(cols):
+                raise ValueError(f"table row {i + 1}: {len(row)} values for {len(cols)} columns")
+            for c in range(c0, c1 + 1):
+                self.ws.cell(r, c).style = "ec_rep_td"
+                if i % 2:
+                    self.ws.cell(r, c).fill = _fill(C.BLUE_XLT)
+            for j, (v, col) in enumerate(zip(row, cols)):
+                put(r, j, v, col.fmt)
+            r += 1
+        last = r - 1
+        if total:
+            for c in range(c0, c1 + 1):
+                self.ws.cell(r, c).style = "ec_rep_total"
+            lab = self.ws.cell(r, c0, total_label)
+            lab.alignment = Alignment(horizontal="left", vertical="center")
+            for j, col in enumerate(cols):
+                agg = total.get(col.key)
+                if agg:
+                    letter = get_column_letter(starts[j] + spans[j] - 1)
+                    put(r, j, agg if agg.startswith("=") else f"={agg}({letter}{first}:{letter}{last})", col.fmt)
+            r += 1
+        self._done(at, r)
+        return first, last
+
+    def step(self, key: str, label: str, symbol: str, relation: str, unit: str, *, values: str = "",
+             fmt: str = "0.00", dec: int = 2, latex: str = "", source: str = "") -> None:
+        """One step of the calculation procedure, as written in a report:
+
+            n.m  Label                                                   source
+                 [rendered equation, when latex is given]
+                 symbol = relation = substituted values =            value  unit
+
+        `key` names an existing quantity (calc sheet); `values` is a `subst` template.
+        """
+        if key not in self.book.names:
+            raise KeyError(f"step {key!r}: name not defined yet — build the calc sheet first")
+        r, c0, c1 = self._at("full")
+        self._item += 1
+        self.ws.cell(r, c0, f"{self._sec}.{self._item}").style = "ec_unit"
+        self.ws.cell(r, c0 + 1, label).style = "ec_rep_step"
+        if source:
+            src = self.ws.cell(r, c1, source)
+            src.style = "ec_source"
+            src.alignment = Alignment(horizontal="right", vertical="center")
+        r += 1
+        if latex:
+            r += self._image(_mathtext_png(latex, fontsize=12), r, c0 + 1, None)
+        lead = f"{symbol} = " if latex else f"{symbol} = {relation} = "
+        lead = '"' + lead.replace('"', '""') + '"'
+        line = f"={lead}&{subst(values, dec)}&\" =\"" if values else f"={lead}"
+        self.ws.cell(r, c0 + 1, fx(line)).style = "ec_rep_formula"
+        res = self.ws.cell(r, c1 - 1, f"={key}")
+        res.style = "ec_rep_res"
+        res.number_format = fmt
+        self.ws.cell(r, c1, unit).style = "ec_unit"
+        self._done("full", r + 1, gap=0)
+
+    def check_step(self, key: str, label: str, relation: str = "") -> None:
+        """A check or condition as a report step: inequality with numbers, η (or YES / NO), status."""
+        rec = self.book.check_keys.get(key)
+        if rec is None:
+            raise KeyError(f"check_step {key!r}: no check or condition of that name")
+        q = quote_sheetname(rec.sheet)
+        r, c0, c1 = self._at("full")
+        self._item += 1
+        self.ws.cell(r, c0, f"{self._sec}.{self._item}").style = "ec_unit"
+        self.ws.cell(r, c0 + 1, label).style = "ec_rep_step"
+        for c in (c1 - 1, c1):
+            self.ws.cell(r, c).style = "ec_rep_status"
+        self.ws.cell(r, c1 - 1, f"={q}!$I${rec.row}")
+        a, b = get_column_letter(c1 - 1), get_column_letter(c1)
+        _status_rules(self.ws, f"{a}{r}:{b}{r}", f"${a}${r}")
+        r += 1
+        rel = relation.replace('"', '""')
+        text = f'="{rel}   →   "&{q}!$G${rec.row}' if relation else f'={q}!$G${rec.row}&""'
+        self.ws.cell(r, c0 + 1, text).style = "ec_rep_formula"
+        sym = self.ws.cell(r, c1 - 2, f"{rec.symbol or 'η'} =" if rec.numeric else "")
+        sym.style = "ec_symbol"
+        sym.border = Border()
+        res = self.ws.cell(r, c1 - 1, f"={key}" if rec.numeric else f"={q}!$E${rec.row}")
+        res.style = "ec_rep_res"
+        res.number_format = "0.00"
+        self._done("full", r + 1, gap=0)
+
+    def checks(self, *, title: str = "Summary of checks") -> tuple[int, int]:
+        """Full-width table of every check and condition defined so far, with η and status."""
+        rows = []
+        for i, rec in enumerate(self.book.checks, 1):
+            q = quote_sheetname(rec.sheet)
+            rows.append((i, rec.label, rec.symbol, f'={q}!$G${rec.row}&""',
+                         f"={q}!$E${rec.row}" if rec.numeric else f'="{NA}"', f"={q}!$I${rec.row}"))
+        first, last = self.table([Col("n", "#", "0"), Col("label", "Check / condition", "@"), Col("sym", "Symbol", "@"),
+                                  Col("rel", "Effect vs resistance", "@"), Col("eta", "η [–]", "0.00"),
+                                  Col("st", "Status", "@")], rows, spans=(1, 4, 1, 3, 1, 2), title=title)
+        a, b = get_column_letter(12), get_column_letter(13)
+        _status_rules(self.ws, f"{a}{first}:{b}{last}", f"${a}{first}")
+        return first, last
+
+    def equation(self, latex: str, *, at: Place = "full") -> None:
+        r, c0, _ = self._at(at)
+        self._done(at, r + self._image(_mathtext_png(latex, fontsize=12), r, c0 + 1, None), gap=0)
+
+    def figure(self, png: bytes | str | Path, *, at: Place = "right", width_px: int | None = None,
+               caption: str = "") -> None:
+        """Small static sketch / drawing (PNG), scaled to the block width unless width_px is given."""
+        data = png if isinstance(png, bytes) else Path(png).read_bytes()
+        r, c0, c1 = self._at(at)
+        r += self._image(data, r, c0, width_px or (c1 - c0 + 1) * _REPORT_PX - 8)
+        if caption:
+            self.ws.cell(r, c0, caption).style = "ec_comment"
+            r += 1
+        self._done(at, r)
+
+    def chart(self, chart: ScatterChart | BarChart | LineChart, *, at: Place = "right") -> None:
+        """Live chart in a block; size it to the block (half width ≈ 9.5 cm, full ≈ 19 cm)."""
+        r, c0, _ = self._at(at)
+        self.ws.add_chart(chart, f"{get_column_letter(c0)}{r}")
+        self._done(at, r + int(chart.height / 0.53) + 1)
+
+    def notes(self, items: Sequence[str], *, title: str = "Assumptions", at: Place = "full") -> None:
+        """Lettered notes a) b) … in dark blue italics, wrapped to the block width."""
+        r, c0, c1 = self._at(at)
+        for c in range(c0, c1 + 1):
+            self.ws.cell(r, c).style = "ec_h2"
+        self.ws.cell(r, c0, title)
+        r += 1
+        width = int((c1 - c0) * REPORT_W * 1.25)
+        for k, item in enumerate(items):
+            letter = self.ws.cell(r, c0, f"{chr(ord('a') + k)})")
+            letter.font = _font("C00000", size=9, bold=True)
+            letter.alignment = Alignment(horizontal="right", vertical="top")
+            for line in textwrap.wrap(item, width) or [""]:
+                self.ws.cell(r, c0 + 1, line).style = "ec_rep_note"
+                r += 1
+        self._done(at, r)
+
+    def signatures(self, roles: Sequence[tuple[str, str]] = (
+            ("Prepared by", '=meta_author&""'), ("Checked by", '=meta_checker&""'), ("Approved by", ""))) -> None:
+        """Signature boxes across the page: (role, name or formula) — name, line, 'signature · date'."""
+        r, c0, c1 = self._at("full")
+        w = (c1 - c0 + 1) // len(roles)
+        for k, (role, name) in enumerate(roles):
+            a = c0 + k * w
+            self.ws.cell(r, a, role).style = "ec_meta_label"
+            self.ws.cell(r + 1, a, _val(name)).style = "ec_meta"
+            for c in range(a, a + w - 1):  # last column of each box is a gap
+                self.ws.cell(r + 2, c).border = Border(bottom=_side(C.TEXT))
+            self.ws.cell(r + 3, a, "signature · date").style = "ec_comment"
+        self.ws.row_dimensions[r + 2].height = 30
+        self._done("full", r + 4)
+
+    def close(self) -> None:
+        """Call after the last block: print area, A4 portrait, header rows repeated on every page."""
+        last = max(self._next.values())
+        _page_setup(self.ws, f"A1:{get_column_letter(REPORT_COLS + 2)}{last}", title_rows="1:2")
 
 
 # --------------------------------------------------------------------------- #
@@ -1109,6 +1617,83 @@ def sketch_chart(block: Block, x: str, y: str, *, half_range: float, size_cm: fl
     return ch
 
 
+LineKind = Literal["outline", "hidden", "axis", "hatch", "dim", "ext", "thin"]
+
+# ISO 128 line types: (colour, width in pt, dash, arrows on both ends)
+_LINE: dict[str, tuple[str, float, str | None, bool]] = {
+    "outline": (C.NAVY, 2.0, None, False),
+    "hidden": (C.NAVY, 0.75, "dash", False),
+    "axis": ("C00000", 0.75, "lgDashDot", False),
+    "hatch": ("595959", 0.5, None, False),
+    "dim": ("262626", 0.75, None, True),
+    "ext": ("262626", 0.5, None, False),
+    "thin": (C.NAVY, 0.75, None, False),
+}
+
+
+@dataclass(frozen=True)
+class DrawSeries:
+    """One polyline of a drawing. `label` = cell holding the text shown at point `label_at`."""
+
+    block: Block
+    x: str
+    y: str
+    kind: LineKind = "outline"
+    label: str | None = None  # absolute cell reference, e.g. "'92_DrawingData'!$C$5"
+    label_at: int = 1
+    label_pos: Literal["t", "b", "l", "r", "ctr"] = "t"
+    vertical: bool = False
+
+
+def drawing_chart(items: Sequence[DrawSeries], *, x_range: tuple[float, float], y_range: tuple[float, float],
+                  width_cm: float = 16.0, title: str | None = None) -> ScatterChart:
+    """Technical drawing as an XY chart: equal scale (height follows the ranges), no axes,
+    ISO 128 line types, arrowed dimension lines and dimension texts linked to cells
+    (series name shown as a data label — works in Excel and LibreOffice).
+
+    Coordinates are drawing units (paper mm after applying the drawing scale); keep the
+    ranges fixed and scale the geometry in the sheet, so the picture never distorts.
+    """
+    ch = ScatterChart()
+    ch.title = title
+    ch.style = 13
+    ch.legend = None
+    for it in items:
+        color, width, dash, arrows = _LINE[it.kind]
+        s = Series(it.block.ref(it.y), it.block.ref(it.x))
+        ln = s.graphicalProperties.line
+        ln.solidFill = color
+        ln.width = int(width * 12700)
+        if dash:
+            ln.prstDash = dash
+        if arrows:
+            ln.headEnd = LineEndProperties(type="triangle", w="sm", len="med")
+            ln.tailEnd = LineEndProperties(type="triangle", w="sm", len="med")
+        s.marker.symbol = "none"
+        s.smooth = False  # LibreOffice smooths the whole chart once any series is smooth
+        if it.label:
+            s.tx = SeriesLabel(strRef=StrRef(it.label))
+            props = RichTextProperties(rot=-5400000 if it.vertical else 0, vert="horz")
+            text = RichText(bodyPr=props, p=[Paragraph(
+                pPr=ParagraphProperties(defRPr=CharacterProperties(sz=900, b=False, solidFill=C.NAVY)),
+                endParaRPr=CharacterProperties())])
+            s.dLbls = DataLabelList(dLbl=[DataLabel(idx=it.label_at, showSerName=True, showVal=False,
+                                                     showCatName=False, showLegendKey=False, showPercent=False,
+                                                     dLblPos=it.label_pos, txPr=text)],
+                                    showVal=False, showSerName=False, showCatName=False,
+                                    showLegendKey=False, showPercent=False)
+        ch.series.append(s)
+    for ax, (lo, hi) in ((ch.x_axis, x_range), (ch.y_axis, y_range)):
+        ax.scaling.min, ax.scaling.max = lo, hi
+        ax.delete = True
+        ax.majorGridlines = None
+    ch.width = width_cm
+    ch.height = width_cm * (y_range[1] - y_range[0]) / (x_range[1] - x_range[0])
+    ch.layout = Layout(manualLayout=ManualLayout(layoutTarget="inner", xMode="edge", yMode="edge",
+                                                 x=0.0, y=0.0, w=1.0, h=1.0))
+    return ch
+
+
 def _mathtext_png(latex: str, *, fontsize: int = 13, dpi: int = 200) -> bytes:
     import matplotlib
 
@@ -1131,6 +1716,7 @@ def png_from_figure(fig: object, *, dpi: int = 150) -> bytes:
 
 
 __all__ = [
-    "C", "Col", "Meta", "EngWorkbook", "CalcSheet", "DataSheet", "Dashboard", "Block",
-    "fx", "let", "index_match", "xy_chart", "sketch_chart", "png_from_figure",
+    "C", "Col", "Meta", "EngWorkbook", "CalcSheet", "DataSheet", "Dashboard", "DrawingSheet", "Block",
+    "ReportSheet", "DrawSeries", "fx", "let", "index_match", "interval_lookup", "tol_text", "subst", "xy_chart",
+    "sketch_chart", "drawing_chart", "png_from_figure",
 ]

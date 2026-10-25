@@ -1,217 +1,225 @@
-# Nástroje Excelu — co použít na jaký úkol
+# Excel tools — what to use for which task
 
-Zásada: použij **nejsilnější funkci, kterou cílová verze umí**, a minimální verzi napiš do
-README (`Vyžaduje: Excel 365 / 2021 / 2016 / LibreOffice ≥ 24.8`). Cílovou verzi zjisti ve
-specifikaci; když ji nikdo neřekne, platí Excel 365 a ke každé funkci jen pro 365 dej do
-sl. H náhradu pro starší verze.
+Rule: use **the strongest function the target version offers** and write the minimum version
+into the README (`Requires: Excel 365 / 2021 / 2016 / LibreOffice ≥ 24.8`). Find the target
+version in the specification; if nobody says, assume Excel 365 and for every 365-only function
+give a fallback for older versions in col. H.
 
-Verze: **365** = Microsoft 365, **21** = Excel 2021/2024, **16** = Excel 2016/2019,
-**LO** = LibreOffice Calc (24.2 / 24.8). ✔ = umí, ✘ = neumí.
+Versions: **365** = Microsoft 365, **21** = Excel 2021/2024, **16** = Excel 2016/2019,
+**LO** = LibreOffice Calc (24.2 / 24.8). ✔ = supported, ✘ = not supported.
 
-## 0. Základní sada inženýra (rychlý přehled)
+## 0. The engineer's core set (quick overview)
 
-Minimum, které má agent v hlavě; detaily a verze v sekcích níže.
+The minimum the agent keeps in mind; details and versions in the sections below.
 
-| Skupina | Funkce | Typické použití | § |
+| Group | Functions | Typical use | § |
 |---|---|---|---|
-| dohledání | `XLOOKUP`, `INDEX`+`MATCH` | materiály, čísla dílů, dodavatelé, průřezy z katalogu | 1 |
-| logika a chyby | `IF`, `IFS`, `AND`, `OR`, `IFNA`, `IFERROR` (jen s důvodem) | větve modelu, zachycení `#DIV/0!` jako stav „nelze vyhodnotit“ | 3 |
-| souhrny | `SUM`, `AVERAGE`, `MIN`, `MAX`, `STDEV.S` (výběr) / `STDEV.P` (celý soubor) | statistika měření, souhrn sady | 6 |
-| podmíněné součty | `SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `MAXIFS` | **kusovník** (počty a ceny dílů podle typu), počty poruch podle příčiny | 6 |
-| pořadí a rozložení | `RANK.EQ`, `PERCENTRANK.INC`, `PERCENTILE.INC`, `QUARTILE.INC` | rozhodující zatěžovací stav, kvantil pevnosti, výběr nejhorší varianty | 6 |
-| regrese | `LINEST`, `TREND`, `RSQ` | proložení zkoušky, charakteristika | 2, 6 |
-| jednotky | `CONVERT` | °F→°C, psi→Pa, ft→m — jen na hranici, výpočet v SI | 7 |
-| Besselovy funkce | `BESSELJ/Y/I/K` | vedení tepla (žebra), akustika, skin efekt | 7 |
-| komplexní čísla | `COMPLEX`, `IMABS`, `IMCONJUGATE`, `IMSUM`, `IMPRODUCT` | obvody AC, fázory, vektory | 4 |
-| bity a soustavy | `BIN2DEC`, `HEX2DEC`, `BITAND`, `BITOR` | registry MCU, protokoly, stavová slova | 7 |
-| chybová funkce | `ERF`, `ERFC` | vedení tepla v poloprostoru, pravděpodobnost | 7 |
-| co-když | Hledání řešení, Řešitel | inverzní úloha, optimalizace (min. hmotnost při únosnosti) — **jen návrh**, výsledek se zapíše jako vstup | 8, P17 |
+| lookup | `XLOOKUP`, `INDEX`+`MATCH` | material specs, part numbers, suppliers, sections from a catalogue | 1 |
+| logic and errors | `IF`, `IFS`, `AND`, `OR`, `IFNA`, `IFERROR` (only with a reason) | model branches, trapping `#DIV/0!` as status "cannot evaluate" | 3 |
+| summaries | `SUM`, `AVERAGE`, `MIN`, `MAX`, `STDEV.S` (sample) / `STDEV.P` (whole population) | measurement statistics, dataset summary | 6 |
+| conditional sums | `SUMIFS`, `COUNTIFS`, `AVERAGEIFS`, `MAXIFS` | **bill of materials** (quantities and costs by part type), failure counts by cause | 6 |
+| rank and distribution | `RANK.EQ`, `PERCENTRANK.INC`, `PERCENTILE.INC`, `QUARTILE.INC` | governing load case, strength quantile, worst variant | 6 |
+| regression | `LINEST`, `TREND`, `RSQ` | curve fitting of tests, characteristics | 2, 6 |
+| units | `CONVERT` | °F→°C, psi→Pa, ft→m — only at the boundary, calculation in SI | 7 |
+| Bessel functions | `BESSELJ/Y/I/K` | heat conduction (fins), acoustics, skin effect | 7 |
+| complex numbers | `COMPLEX`, `IMABS`, `IMCONJUGATE`, `IMSUM`, `IMPRODUCT` | AC circuits, phasors, vectors | 4 |
+| bits and bases | `BIN2DEC`, `HEX2DEC`, `BITAND`, `BITOR` | MCU registers, protocols, status words | 7 |
+| error function | `ERF`, `ERFC` | heat conduction in a half-space, probability | 7 |
+| size ranges | `INDEX(values,COUNTIF(upper_bounds,"<"&x)+1)` | ISO 286, ISO 2768 and other "over … up to" tables | 2 |
+| what-if | Goal Seek, Solver | inverse problem, optimisation (min. mass at a required load) — **design only**, the result is written as an input | 8, P17 |
 
-## 1. Dohledávání, katalogy, databáze
+## 1. Lookup, catalogues, databases
 
-| Úkol | Funkce | 365 | 21 | 16 | LO |
+| Task | Function | 365 | 21 | 16 | LO |
 |---|---|---|---|---|---|
-| hodnota z katalogu podle klíče | `XLOOKUP(klíč;db_x_key;db_x_C)` | ✔ | ✔ | ✘ | ≥24.8 |
-| totéž kompatibilně | `INDEX(db_x_C;MATCH(klíč;db_x_key;0))` | ✔ | ✔ | ✔ | ✔ |
-| nejbližší vyšší normalizovaná hodnota (řada průřezů, E12, jističe) | `XLOOKUP(x;řada;řada;;1)` / `INDEX(řada;MATCH(TRUE;řada>=x;0))` | ✔ | ✔ | ✔* | ✔ |
-| výběr všech vyhovujících položek | `FILTER(tbl[Označení];(podm1)*(podm2);"nic nevyhovuje")` | ✔ | ✔ | ✘ | ≥24.8 |
-| seřadit katalog podle využití | `SORTBY(tbl[Označení];η_sloupec;1)` | ✔ | ✔ | ✘ | ≥24.8 |
-| závislý rozbalovací seznam | ověření dat se zdrojem `=FILTER(...)` přes pojmenovanou oblast | ✔ | ✔ | ✘ | — |
-| sloupce/řádky tabulky | `CHOOSECOLS`, `TAKE`, `DROP`, `VSTACK`, `HSTACK` | ✔ | 24 | ✘ | ✘ |
+| value from a catalogue by key | `XLOOKUP(key;db_x_key;db_x_C)` | ✔ | ✔ | ✘ | ≥24.8 |
+| the same, compatible | `INDEX(db_x_C;MATCH(key;db_x_key;0))` | ✔ | ✔ | ✔ | ✔ |
+| next higher standard value (section series, E12, breakers) | `XLOOKUP(x;series;series;;1)` / `INDEX(series;MATCH(TRUE;series>=x;0))` | ✔ | ✔ | ✔* | ✔ |
+| all items that comply | `FILTER(tbl[Name];(cond1)*(cond2);"none complies")` | ✔ | ✔ | ✘ | ≥24.8 |
+| sort a catalogue by utilisation | `SORTBY(tbl[Name];eta_column;1)` | ✔ | ✔ | ✘ | ≥24.8 |
+| dependent dropdown | data validation with source `=FILTER(...)` through a named range | ✔ | ✔ | ✘ | — |
+| table columns / rows | `CHOOSECOLS`, `TAKE`, `DROP`, `VSTACK`, `HSTACK` | ✔ | 24 | ✘ | ✘ |
 
-`*` v 16 jako maticový vzorec. Katalog vždy jako Excel tabulka; strukturované odkazy
-`tbl_brg[C]` ve vzorcích tabulek, jména `db_*` mimo ně.
+`*` in 16 as an array formula. A catalogue is always an Excel table; structured references
+`tbl_brg[C]` in table formulas, `db_*` names outside them.
 
-## 2. Interpolace a aproximace (tabulky z norem, charakteristiky)
+## 2. Interpolation and approximation (tables from standards, characteristics)
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| lineární interpolace v tabulce | `LET(k;XMATCH(x;X;-1);FORECAST.LINEAR(x;INDEX(Y;k):INDEX(Y;k+1);INDEX(X;k):INDEX(X;k+1)))`; kompatibilně `MATCH(x;X;1)` a vzorec přímky |
-| bilineární interpolace (2D tabulka) | dvakrát lineární přes `INDEX` řádku a sloupce, nebo `LAMBDA` `INTERP2` |
-| proložení přímky / polynomu | `LINEST(y;x^{1,2,3};TRUE;TRUE)` (koeficienty + R², směrodatné chyby), `TREND`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX` |
-| exponenciála / mocnina | `LOGEST`, `GROWTH`; mocninu linearizuj `LINEST(LN(y);LN(x))` |
-| hodnota mimo rozsah tabulky | **nikdy neextrapoluj tiše** → `condition` „x v rozsahu tabulky“ |
+| linear interpolation in a table | `LET(k;XMATCH(x;X;-1);FORECAST.LINEAR(x;INDEX(Y;k):INDEX(Y;k+1);INDEX(X;k):INDEX(X;k+1)))`; compatible: `MATCH(x;X;1)` and the line formula |
+| bilinear interpolation (2D table) | linear twice via `INDEX` of row and column, or a `LAMBDA` `INTERP2` |
+| size-range table ("over a up to b", x on a bound belongs to the lower range) | `INDEX(values;COUNTIF(upper_bounds;"<"&x)+1)` — `engcalc.interval_lookup()` |
+| fitting a line / polynomial | `LINEST(y;x^{1,2,3};TRUE;TRUE)` (coefficients + R², standard errors), `TREND`, `SLOPE`, `INTERCEPT`, `RSQ`, `STEYX` |
+| exponential / power law | `LOGEST`, `GROWTH`; linearise a power law with `LINEST(LN(y);LN(x))` |
+| value outside the table range | **never extrapolate silently** → `condition` "x within table range" |
 
-## 3. Logika, větve, čitelnost
+## 3. Logic, branches, readability
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| větve výpočtu | `IFS`, `SWITCH` (typ ložiska → exponent, soustava TN/TT/IT → podmínka) |
-| pojmenované mezivýsledky v jednom vzorci | `LET` (365/21, LO ≥ 24.8) |
-| vlastní funkce bez VBA | `LAMBDA` uložená ve Správci názvů: `L10H = LAMBDA(C;P;p;n; 10^6*(C/P)^p/(60*n))` (365) |
-| výpočet po prvcích pole | `MAP`, `BYROW`, `BYCOL`, `MAKEARRAY`, `SCAN` (kumulace), `REDUCE` (365) |
-| cílené ošetření chyb | `IFNA` u dohledání; `IFERROR` jen s textem důvodu, nikdy plošně |
+| calculation branches | `IFS`, `SWITCH` (bearing type → exponent, system TN/TT/IT → condition) |
+| named intermediate results in one formula | `LET` (365/21, LO ≥ 24.8) |
+| custom functions without VBA | `LAMBDA` saved in the Name Manager: `L10H = LAMBDA(C;P;p;n; 10^6*(C/P)^p/(60*n))` (365) |
+| element-wise array calculation | `MAP`, `BYROW`, `BYCOL`, `MAKEARRAY`, `SCAN` (accumulation), `REDUCE` (365) |
+| targeted error handling | `IFNA` on lookups; `IFERROR` only with a reason text, never blanket |
+| choose a range by index | `INDEX(CHOOSE(k;range1;range2;…);row)` — tolerance field / class column |
 
-## 4. Komplexní čísla (elektro: fázory, impedance, obvody AC)
+## 4. Complex numbers (electrical: phasors, impedances, AC circuits)
 
-Komplexní číslo je v Excelu **text** `"3+4j"`; vytváří se a čte funkcemi `IM*`
-(všechny verze i LibreOffice).
+A complex number in Excel is **text** `"3+4j"`; it is created and read with the `IM*`
+functions (all versions and LibreOffice).
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| vytvoření | `COMPLEX(R;X;"j")`; z polárního tvaru `IMPRODUCT(abs;IMEXP(COMPLEX(0;RADIANS(φ);"j")))` |
-| aritmetika | `IMSUM`, `IMSUB`, `IMPRODUCT`, `IMDIV`, `IMPOWER`, `IMSQRT`, `IMCONJUGATE` |
-| modul a fáze | `IMABS`, `DEGREES(IMARGUMENT(z))`, `IMREAL`, `IMAGINARY` |
-| funkce | `IMEXP`, `IMLN`, `IMSIN`, `IMCOS`, `IMSINH`, `IMCOSH`, `IMTAN` (od 2013; v souboru `_xlfn.` — LibreOffice 24.2 takový soubor nepřečte, `verify.py` pak hlásí `#NAME?`, Excel je v pořádku; pro LO použij `IMEXP`: sinh z = (e^z − e^−z)/2) |
-| paralelní impedance | `IMDIV(IMPRODUCT(Z1;Z2);IMSUM(Z1;Z2))` nebo LAMBDA `ZPAR` |
-| výkon | `S = IMPRODUCT(U;IMCONJUGATE(I))` → P = `IMREAL(S)`, Q = `IMAGINARY(S)`, cos φ = `P/IMABS(S)` |
+| creation | `COMPLEX(R;X;"j")`; from polar form `IMPRODUCT(abs;IMEXP(COMPLEX(0;RADIANS(φ);"j")))` |
+| arithmetic | `IMSUM`, `IMSUB`, `IMPRODUCT`, `IMDIV`, `IMPOWER`, `IMSQRT`, `IMCONJUGATE` |
+| magnitude and phase | `IMABS`, `DEGREES(IMARGUMENT(z))`, `IMREAL`, `IMAGINARY` |
+| functions | `IMEXP`, `IMLN`, `IMSIN`, `IMCOS`, `IMSINH`, `IMCOSH`, `IMTAN` (from 2013; stored with `_xlfn.` — LibreOffice 24.2 cannot read such a file, `verify.py` then reports `#NAME?`, Excel is fine; for LO use `IMEXP`: sinh z = (e^z − e^−z)/2) |
+| parallel impedance | `IMDIV(IMPRODUCT(Z1;Z2);IMSUM(Z1;Z2))` or a LAMBDA `ZPAR` |
+| power | `S = IMPRODUCT(U;IMCONJUGATE(I))` → P = `IMREAL(S)`, Q = `IMAGINARY(S)`, cos φ = `P/IMABS(S)` |
 
-Pravidla: zobrazovat **modul a úhel jako čísla** (`IMABS`, `DEGREES(IMARGUMENT())`) se
-standardním formátem a jednotkou — text komplexního čísla se nedá zaokrouhlit formátem.
-Vstupy zadávej jako R a X (dvě číselné buňky s ověřením dat), komplexní buňku z nich skládej.
-Fázorový diagram = živá skica (XY graf z `IMREAL`/`IMAGINARY`).
+Rules: show **magnitude and angle as numbers** (`IMABS`, `DEGREES(IMARGUMENT())`) with a
+standard format and unit — the text of a complex number cannot be rounded by a format.
+Enter inputs as R and X (two numeric cells with data validation) and compose the complex cell
+from them. Phasor diagram = live sketch (XY chart from `IMREAL`/`IMAGINARY`).
 
-## 5. Matice a soustavy rovnic
+## 5. Matrices and systems of equations
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| soustava A·x = b (uzlové napětí, příhradovina, statika) | `MMULT(MINVERSE(A);b)` |
-| determinant (singularita → `condition`) | `MDETERM(A)`; podmínka `ABS(MDETERM(A))>tol` |
-| transformace (abc → dq0, souřadnice) | `MMULT`, `TRANSPOSE`, `MUNIT` |
-| komplexní soustava | `MMULT` komplexní neumí → rozepsat na reálnou soustavu 2n×2n `[[R;−X];[X;R]]` |
+| system A·x = b (node voltages, truss, statics) | `MMULT(MINVERSE(A);b)` |
+| determinant (singularity → `condition`) | `MDETERM(A)`; condition `ABS(MDETERM(A))>tol` |
+| transformations (abc → dq0, coordinates) | `MMULT`, `TRANSPOSE`, `MUNIT` |
+| complex system | `MMULT` cannot do complex → expand into a real 2n×2n system `[[R;−X];[X;R]]` |
 
-Matice vždy jako pojmenovaná oblast (`calc_A`), rozměr kontroluj `ROWS`/`COLUMNS` v `condition`.
+A matrix always as a named range (`calc_A`); check its size with `ROWS`/`COLUMNS` in a `condition`.
 
-## 6. Statistika a datová analýza (měření, zkoušky, spolehlivost)
+## 6. Statistics and data analysis (measurements, tests, reliability)
 
-| Úkol | Funkce / nástroj |
+| Task | Function / tool |
 |---|---|
-| popis souboru | `AVERAGE`, `MEDIAN`, `STDEV.S`, `VAR.S`, `MIN`, `MAX`, `PERCENTILE.INC`, `QUARTILE.INC`, `COUNT` |
-| interval spolehlivosti | `CONFIDENCE.T(α;s;n)`, `T.INV.2T(α;n−1)` |
-| rozdělení | `NORM.DIST`, `NORM.INV`, `LOGNORM.DIST`, `WEIBULL.DIST` (spolehlivost ložisek, únava), `EXPON.DIST` (poruchovost), `BINOM.DIST`, `POISSON.DIST` |
-| testy | `T.TEST`, `F.TEST`, `CHISQ.TEST` |
-| korelace a regrese | `CORREL`, `LINEST` s úplnou statistikou, `FORECAST.LINEAR`, `TREND` |
-| podmíněné agregace | `SUMIFS`, `AVERAGEIFS`, `COUNTIFS`, `MAXIFS`, `MINIFS`, `AGGREGATE` (ignoruje chyby a skryté) |
-| histogram | `FREQUENCY` nebo `COUNTIFS` po třídách + sloupcový graf; v 365 graf Histogram |
-| odlehlé hodnoty | `condition` `ABS(x−průměr) ≤ k·s` nebo kvartilové meze |
-| import a čištění měření | **Power Query** (CSV z osciloskopu/měřicí karty → tabulka, typy, jednotky), výsledek jako Excel tabulka |
-| přehledy | kontingenční tabulka + průřezy (slicery), kontingenční graf |
-| spektrum, FFT | doplněk Analýza dat → Fourierova analýza (desktop), nebo `=PY()` |
-| regrese s diagnostikou | Analýza dat → Regrese (desktop); výsledek převeď do vzorců `LINEST`, ať se přepočítává |
-| Python v buňce | `=PY()` (Microsoft 365, kde je dostupné): numpy/scipy pro to, co vzorce neumí; výsledek vždy zpět do pojmenované buňky se zdrojem |
+| describing a dataset | `AVERAGE`, `MEDIAN`, `STDEV.S`, `VAR.S`, `MIN`, `MAX`, `PERCENTILE.INC`, `QUARTILE.INC`, `COUNT` |
+| sample vs. population | `STDEV.S` / `VAR.S` for a sample (tests, measurements), `STDEV.P` / `VAR.P` only for the complete population |
+| confidence interval | `CONFIDENCE.T(α;s;n)`, `T.INV.2T(α;n−1)` |
+| distributions | `NORM.DIST`, `NORM.INV`, `LOGNORM.DIST`, `WEIBULL.DIST` (bearing reliability, fatigue), `EXPON.DIST` (failure rate), `BINOM.DIST`, `POISSON.DIST` |
+| tests | `T.TEST`, `F.TEST`, `CHISQ.TEST` |
+| correlation and regression | `CORREL`, `LINEST` with full statistics, `FORECAST.LINEAR`, `TREND` |
+| rank and position | `RANK.EQ` (governing load case), `PERCENTRANK.INC`, `LARGE`, `SMALL` |
+| conditional aggregation | `SUMIFS`, `AVERAGEIFS`, `COUNTIFS`, `MAXIFS`, `MINIFS`, `AGGREGATE` (ignores errors and hidden rows) |
+| bill of materials / cost roll-up | Excel table of parts + `SUMIFS(tbl[Qty]*…)` by type, `SUMPRODUCT(qty;unit_cost)` |
+| histogram | `FREQUENCY` or `COUNTIFS` per bin + column chart; in 365 the Histogram chart |
+| outliers | `condition` `ABS(x−mean) ≤ k·s` or quartile fences |
+| import and cleaning of measurements | **Power Query** (CSV from an oscilloscope / DAQ → table, types, units), result as an Excel table |
+| summaries | pivot table + slicers, pivot chart |
+| spectrum, FFT | Analysis ToolPak → Fourier Analysis (desktop), or `=PY()` |
+| regression with diagnostics | Analysis ToolPak → Regression (desktop); turn the result into `LINEST` formulas so it recalculates |
+| Python in a cell | `=PY()` (Microsoft 365, where available): numpy/scipy for what formulas cannot do; always bring the result back into a named cell with a source |
 
-## 7. Inženýrské a matematické funkce
+## 7. Engineering and mathematical functions
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| převody jednotek | `CONVERT(x;"hr";"yr")`, `CONVERT(t;"C";"K")`, `CONVERT(p;"bar";"Pa")`, `CONVERT(P;"HP";"W")` — výpočet vždy v SI, převádí se na hranici |
-| chybová funkce (vedení tepla, difuze, šum) | `ERF`, `ERFC`, `ERF.PRECISE` |
-| Besselovy funkce (skin efekt, žebra, kmitání membrán) | `BESSELJ`, `BESSELY`, `BESSELI`, `BESSELK` |
-| gama a faktoriál | `GAMMA`, `GAMMALN.PRECISE`, `FACT`, `COMBIN` |
-| úhly | `RADIANS`, `DEGREES`, `PI()`, `ATAN2(x;y)` (pozor: pořadí x, y) |
-| skokové funkce, tolerance | `DELTA`, `GESTEP`, `SIGN`, `ABS` |
-| zaokrouhlení na řadu / výrobní krok | `MROUND`, `CEILING.MATH`, `FLOOR.MATH`, `ROUNDUP` (vždy na bezpečnou stranu) |
-| registry, protokoly | `BIN2DEC`, `HEX2DEC`, `DEC2HEX`, `BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT` |
+| unit conversion | `CONVERT(x;"hr";"yr")`, `CONVERT(t;"C";"K")`, `CONVERT(p;"bar";"Pa")`, `CONVERT(P;"HP";"W")` — calculation always in SI, conversion at the boundary |
+| error function (heat conduction, diffusion, noise) | `ERF`, `ERFC`, `ERF.PRECISE` |
+| Bessel functions (skin effect, fins, membrane vibration) | `BESSELJ`, `BESSELY`, `BESSELI`, `BESSELK` |
+| gamma and factorial | `GAMMA`, `GAMMALN.PRECISE`, `FACT`, `COMBIN` |
+| angles | `RADIANS`, `DEGREES`, `PI()`, `ATAN2(x;y)` (note: order x, y) |
+| step functions, tolerances | `DELTA`, `GESTEP`, `SIGN`, `ABS` |
+| rounding to a series / manufacturing step | `MROUND`, `CEILING.MATH`, `FLOOR.MATH`, `ROUNDUP` (always to the safe side) |
+| registers, protocols | `BIN2DEC`, `HEX2DEC`, `DEC2HEX`, `BITAND`, `BITOR`, `BITXOR`, `BITLSHIFT` |
 
-## 8. Numerika bez maker
+## 8. Numerics without macros
 
-| Úkol | Postup |
+| Task | Procedure |
 |---|---|
-| vážený součet, ekvivalentní zatížení | `SUMPRODUCT`: `P_eq = (SUMPRODUCT(P^3;q)/SUM(q))^(1/3)` |
-| integrál z tabulky (lichoběžník) | `SUMPRODUCT((x2−x1)*(y1+y2)/2)` s posunutými oblastmi; v 365 `DROP` |
-| derivace z tabulky | centrální diference v pomocném sloupci |
-| implicitní rovnice (Colebrook, rovnováha) | iterace rozepsaná v řádcích + `condition` konvergence ([patterns.md](patterns.md) P16) |
-| řada bodů pro graf | `SEQUENCE(n;1;start;krok)` (365) nebo sloupec `=start+(ROW()-r0)*krok` |
-| ODE / přechodový děj | explicitní schéma v mřížce + `condition` stability (P11) |
-| optimalizace | Řešitel (Solver) jen jako nástroj **návrhu**, výsledek se zapíše jako vstup; výpočet nesmí na Řešiteli záviset |
+| weighted sum, equivalent load | `SUMPRODUCT`: `P_eq = (SUMPRODUCT(P^3;q)/SUM(q))^(1/3)` |
+| integral from a table (trapezoid) | `SUMPRODUCT((x2−x1)*(y1+y2)/2)` with shifted ranges; in 365 `DROP` |
+| derivative from a table | central difference in a helper column |
+| implicit equation (Colebrook, equilibrium) | iteration written out in rows + `condition` convergence ([patterns.md](patterns.md) P16) |
+| series of points for a chart | `SEQUENCE(n;1;start;step)` (365) or a column `=start+(ROW()-r0)*step` |
+| ODE / transient | explicit scheme in a grid + stability `condition` (P11) |
+| optimisation | Solver only as a **design** tool, the result is written as an input; the calculation must not depend on Solver |
+| tolerance stack-up | worst case `ΣT_i`, statistical `SQRT(SUMSQ(T))` (RSS) — `condition` on the assumption of a normal distribution |
 
-## 9. Dokumentace a sebekontrola
+## 9. Documentation and self-checking
 
-| Úkol | Funkce |
+| Task | Function |
 |---|---|
-| zobrazit skutečný vzorec vedle hodnoty | `FORMULATEXT(E41)` (revize, ladění, příloha zprávy) |
-| čísla do textu stavů | `FIXED(x;n)` (ne `TEXT` — závisí na lokalizaci) |
-| spojení textů | `TEXTJOIN(", ";TRUE;oblast)`, `CONCAT` |
-| symboly | `UNICHAR(8804)` ≤, `UNICHAR(951)` η, `UNICHAR(8730)` √ |
-| odkazy v README | `HYPERLINK("#'10_List'!A1";"10_List")` |
-| číslo listu v hlavičce | `SHEET()`, `SHEETS()` |
-| kontrola typu | `ISNUMBER`, `ISTEXT`, `ISBLANK`, `ISFORMULA` (žádný vstup nesmí být vzorec a naopak) |
+| show the actual formula next to the value | `FORMULATEXT(E41)` (review, debugging, report appendix) |
+| numbers in status texts | `FIXED(x;n)` (not `TEXT` — depends on the locale) |
+| joining texts | `TEXTJOIN(", ";TRUE;range)`, `CONCAT` |
+| symbols | `UNICHAR(8804)` ≤, `UNICHAR(951)` η, `UNICHAR(8730)` √ |
+| links in the README | `HYPERLINK("#'10_Sheet'!A1";"10_Sheet")` |
+| sheet number in the title block | `SHEET()`, `SHEETS()` |
+| type checks | `ISNUMBER`, `ISTEXT`, `ISBLANK`, `ISFORMULA` (no input may be a formula and vice versa) |
 
-## 10. Vizuál buněk — využij všechno, co Excel umí
+## 10. Cell visuals — use everything Excel offers
 
-Vzhled je součást výpočtu: čtenář musí na první pohled vidět, co je vstup, co výsledek a co
-nevyhovuje. Formátuje se **styly buňky a pravidly**, ne ručně buňku po buňce.
+The look is part of the calculation: the reader must see at a glance what is an input, what a
+result and what fails. Formatting is done with **cell styles and rules**, not cell by cell.
 
-| Prvek | Použití |
+| Element | Use |
 |---|---|
-| **buňkové styly** (Domů → Styly buňky) | `ec_*` podle [visual-language.md](visual-language.md) / [sheet-styles.md](sheet-styles.md); změna stylu překreslí sešit |
-| **motiv sešitu** (Rozložení stránky → Motivy) | barvy a písma motivu = tokeny; grafy a tvary je přebírají |
-| **vlastní formát čísla** | jednotka zobrazená, hodnota zůstává číslem: `0.0" kN"`, `# ##0" h"`, `0.00" ‰"`; tři sekce `kladné;záporné;nula`; podmínky `[<1]0.000;0.0`; barvy `[Zelená]0.00;[Červená]-0.00`; text `@" ✔"`; inženýrská notace `##0.0E+0`; zlomky `# ?/?` |
-| symboly a indexy | v textu buňky *Formát buněk → Horní/Dolní index* na vybraných znacích, nebo Unicode (², ³, ⁻¹, ₀–₉, ᵣ, ₐ, η, σ, τ, γ, Δ, ≤, ≥, √, ·, ×, ⟨⟩) |
-| zarovnání | *Zarovnat na střed výběru* místo sloučení; odsazení podúrovní; otočený text u úzkých záhlaví; *Zalomit text* jen v poznámkách |
-| ohraničení | tenké pod řádkem obsahu, střední pod záhlavím, dvojité nad součtem/výsledkem, rámeček výsledku |
-| **podmíněné formátování vzorcem** | stavy ✔ ▲ ✘ (conditions.md), zvýraznění rozhodujícího zatěžovacího stavu, šedé písmo u neaktivní větve výpočtu |
-| **datové pruhy** | η v registru i přímo v calc listu (0–1,25, plný pruh, červená nad 1 přes druhé pravidlo) |
-| **barevné škály** | FDM mřížky, mapy teplot, matice citlivosti, tabulky katalogu podle využití |
-| **sady ikon** | jen s vlastními prahy (≥ 1 ✘, ≥ 0,9 ▲, jinak ✔) a vždy s textem vedle |
-| **minigrafy** (sparklines) | průběh vedle čísla: L₁₀ₕ přes zatěžovací stavy, teplota v čase, η přes varianty |
-| komentáře / poznámky | zdroj nebo odvození u konstanty (hover), ne místo sloupce Zdroj |
-| vstupní zpráva ověření dat | jednotka a rozsah při kliknutí na vstup |
-| hypertextové odkazy | z registru na řádek posudku, z README na listy, z konstanty na PDF normy |
-| zobrazení | ukotvené příčky pod hlavičkou, skrytá mřížka, lupa 100 %, rozložení stránky pro tisk, pojmenovaná zobrazení listu |
+| **cell styles** (Home → Cell Styles) | `ec_*` per [visual-language.md](visual-language.md) / [sheet-styles.md](sheet-styles.md); changing a style repaints the workbook |
+| **workbook theme** (Page Layout → Themes) | theme colours and fonts = tokens; charts and shapes inherit them |
+| **custom number format** | unit shown, value stays a number: `0.0" kN"`, `# ##0" h"`, `0.00" ‰"`; three sections `positive;negative;zero`; conditions `[<1]0.000;0.0`; colours `[Green]0.00;[Red]-0.00`; text `@" ✔"`; engineering notation `##0.0E+0`; fractions `# ?/?` |
+| symbols and indices | in cell text *Format Cells → Superscript / Subscript* on selected characters, or Unicode (², ³, ⁻¹, ₀–₉, ᵣ, ₐ, η, σ, τ, γ, Δ, ≤, ≥, √, ·, ×, ⟨⟩, Ø, ±) |
+| alignment | *Centre Across Selection* instead of merging; indent sub-levels; rotated text in narrow headers; *Wrap Text* only in notes |
+| borders | thin under content rows, medium under headers, double above a total / result, frame around the result |
+| **conditional formatting with formulas** | statuses ✔ ▲ ✘ (conditions.md), highlight the governing load case, grey font in an inactive branch of the calculation |
+| **data bars** | η in the register and directly in the calc sheet (0–1.25, solid bar, red above 1 via a second rule) |
+| **colour scales** | FDM grids, temperature maps, sensitivity matrices, catalogue tables by utilisation |
+| **icon sets** | only with custom thresholds (≥ 1 ✘, ≥ 0.9 ▲, otherwise ✔) and always with text next to them |
+| **sparklines** | a trend next to a number: L₁₀ₕ across load cases, temperature over time, η across variants |
+| comments / notes | source or derivation of a constant (hover), not instead of the Source column |
+| input message of data validation | unit and range when the input is clicked |
+| hyperlinks | from the register to the check row, from the README to sheets, from a constant to the PDF of the standard |
+| view | frozen panes under the title block, hidden gridlines, zoom 100 %, page layout for printing, named sheet views |
 
-## 11. Obrázky, tvary a skici
+## 11. Pictures, shapes and sketches
 
-| Prvek | Použití |
+| Element | Use |
 |---|---|
-| **obrázek v buňce** (`=IMAGE(url)` nebo Vložit → Obrázky → Umístit do buňky, 365) | ikona typu prvku v katalogu, schéma varianty vybrané v seznamu — obrázek se mění s výběrem: `=XLOOKUP(in_typ;tbl_typ[key];tbl_typ[obrazek])` |
-| obrázek nad buňkami | skica zadání u sekce vstupů (PNG/SVG z CAD, matplotlib); *Formát → Vlastnosti → Přesouvat a neměnit velikost s buňkami* |
-| **SVG ikony** (Vložit → Ikony) | symboly zatížení, podpor, stavů; barva z motivu |
-| **tvary a skupiny** | idealizované schéma (nosník, podpory, šipky sil, kóty); seskupit, zamknout |
-| **text tvaru propojený s buňkou** (vyber tvar, do řádku vzorců `=calc_h`) | kóty a hodnoty sil ve skice se mění se vstupy |
-| **propojený obrázek** (Kopírovat → Vložit jinak → Propojený obrázek, *Fotoaparát*) | živý výřez výsledkové tabulky na přehledu nebo ve zprávě |
-| **živá skica z grafu** | XY bodový graf ze souřadnic počítaných ze vstupů (průřez, příhradovina, šrouby, fázory) — skryté osy, stejné měřítko x/y |
-| rovnice (Vložit → Rovnice) | klíčové vztahy v textovém poli u sekce; LaTeX-like zápis |
-| SmartArt / vývojový diagram | postup výpočtu na README |
-| vodoznak v záhlaví | „KONCEPT“ do schválení (obrázek v záhlaví stránky) |
+| **picture in a cell** (`=IMAGE(url)` or Insert → Pictures → Place in Cell, 365) | icon of a member type in a catalogue, schematic of the variant chosen in a list — the picture changes with the selection: `=XLOOKUP(in_type;tbl_type[key];tbl_type[picture])` |
+| picture over cells | input sketch next to the input section (PNG/SVG from CAD, matplotlib); *Format → Properties → Move but don't size with cells* |
+| **SVG icons** (Insert → Icons) | symbols of loads, supports, statuses; colour from the theme |
+| **shapes and groups** | idealised schematic (beam, supports, force arrows, dimensions); group, lock |
+| **shape text linked to a cell** (select the shape, type `=calc_h` in the formula bar) | dimensions and force values in the sketch follow the inputs |
+| **linked picture** (Copy → Paste Special → Linked Picture, *Camera*) | live snapshot of a result table on the overview or in a report |
+| **live sketch from a chart** | XY scatter from coordinates computed from the inputs (section, truss, bolts, phasors) — hidden axes, equal x/y scale |
+| **part drawing from a chart** | outline, hatching, centre lines, dimensions with tolerances, automatic scale — [part-drawing.md](part-drawing.md) |
+| equation (Insert → Equation) | key relations in a text box next to the section; LaTeX-like syntax |
+| SmartArt / flowchart | calculation procedure on the README ([dashboard-widgets.md](dashboard-widgets.md) §5) |
+| watermark in the header | "DRAFT" until approved (picture in the page header) |
 
-Obrázky nikdy nenesou čísla, která se nepočítají: každá hodnota ve skice je propojená s buňkou.
+Pictures never carry numbers that are not calculated: every value in a sketch is linked to a cell.
 
-## 12. Grafy
+## 12. Charts
 
-| Prvek | Použití |
+| Element | Use |
 |---|---|
-| XY bodový graf | průběhy, charakteristiky, živé skici; nikdy spojnicový graf pro x–y data |
-| pruhový graf využití | barvy podle bodu, osa 0–125 %, čára 100 % |
-| kombinovaný graf, vedlejší osa | dvě veličiny s různou jednotkou (M a w) |
-| chybové úsečky | tolerance měření, pásmo ±η_warn, čára meze |
-| plošná řada pod křivkou | vyhovující oblast (n ≤ n_max), bezpečná oblast interakčního diagramu |
-| popisky dat z buněk (*Hodnota z buněk*) | pracovní bod, název varianty |
-| šablona grafu (.crtx) | jednotný vzhled všech grafů v sešitu |
-| graf vodopád / histogram / krabicový (365) | bilance ztrát, rozložení měření |
-| dynamický rozsah | data grafu z Excel tabulky nebo pojmenované oblasti, ne pevné adresy |
+| XY scatter | diagrams, characteristics, live sketches, drawings; never a line chart for x–y data |
+| utilisation bar chart | colours by point, axis 0–125 %, 100 % line |
+| combo chart, secondary axis | two quantities with different units (M and w) |
+| error bars | measurement tolerance, ±η_warn band, limit line |
+| area series under a curve | compliant region (n ≤ n_max), safe region of an interaction diagram |
+| data labels from cells (*Value From Cells*) or the series name as a label | operating point, variant name, dimension texts (series name from a cell works in Excel and LibreOffice) |
+| chart template (.crtx) | consistent look of all charts in the workbook |
+| waterfall / histogram / box chart (365) | loss balance, distribution of measurements |
+| dynamic range | chart data from an Excel table or named range, not fixed addresses |
 
-## 13. Vstupy a ochrana
+## 13. Inputs and protection
 
-| Prvek | Použití |
+| Element | Use |
 |---|---|
-| ověření dat | desetinné min–max, seznam, vlastní vzorec (`=AND(ISNUMBER(E12);E12>0)`) + vstupní zpráva + chybové hlášení Stop |
-| ovládací prvky formuláře (desktop) | zaškrtávátko, přepínač, číselník pro citlivost — propojené s buňkou; v Claude in Excel náhrada seznamem |
-| zaškrtávací políčka v buňce (365) | ANO/NE předpoklady (Vložit → Zaškrtávací políčko) |
-| ochrana listu | odemčené jen vstupy, bez hesla; povolit formát sloupců |
-| správce scénářů | pojmenované sady vstupů (zatěžovací stavy) — desktop |
-| Hledání řešení / tabulka dat | desktop, ne v Claude in Excel; náhrada: varianty ve sloupcích (P18) |
+| data validation | decimal min–max, list, custom formula (`=AND(ISNUMBER(E12);E12>0)`) + input message + Stop error alert |
+| form controls (desktop) | check box, option button, spinner, scroll bar for sensitivity — linked to a cell; in Claude in Excel replaced by a list ([dashboard-widgets.md](dashboard-widgets.md) §2) |
+| check boxes in cells (365) | YES/NO assumptions (Insert → Checkbox) |
+| sheet protection | only inputs unlocked, no password; allow column formatting |
+| scenario manager | named sets of inputs (load cases) — desktop |
+| Goal Seek / data table | desktop, not in Claude in Excel; substitute: variants in columns (P18) |
 
-Při psaní souboru přes openpyxl řeší prefixy `_xlfn.`/`_xlpm.` funkce `fx()` a `let()` z
-`engcalc.py`; dynamická pole (`FILTER`, `SORT`, `SEQUENCE`…) se do souboru zapisovat nedají —
-napiš je v Excelu (cesta A) nebo nech v README instrukci.
+When writing the file with openpyxl, `fx()` and `let()` from `engcalc.py` handle the
+`_xlfn.`/`_xlpm.` prefixes; dynamic arrays (`FILTER`, `SORT`, `SEQUENCE`…) cannot be written
+into the file — write them in Excel (path A) or leave an instruction in the README.

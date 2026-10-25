@@ -1,56 +1,57 @@
-# Styly výpočtového listu
+# Calculation sheet styles
 
-Dva styly, stejná data, stejné podmínky ([conditions.md](conditions.md)), stejná jména.
-Liší se rozvržením a hustotou.
+Two styles, same data, same conditions ([conditions.md](conditions.md)), same names.
+They differ in layout and density. A third, **R — printable report**, only reads from them:
+[report-sheet.md](report-sheet.md).
 
-| | **K — kompaktní posudkový list** (preferovaný) | **P — calc pad** |
+| | **K — compact check sheet** (preferred) | **P — calc pad** |
 |---|---|---|
-| Vzor | listy TCC / The Concrete Centre, ruční statický výpočet | protokol krok za krokem |
-| Kdy | hlavní list posudku, 1 strana A4 na jeden prvek | dlouhé odvození, návrhové metodiky (stroj, vinutí), revize |
-| Hustota | 2 veličiny na řádek, tabulky zatěžovacích stavů | 1 veličina na řádek |
-| `engcalc.py` | zatím ne (ticket 12) — cesta A | `CalcSheet` |
+| Model | TCC / The Concrete Centre sheets, hand-written structural calculation | step-by-step report |
+| When | main check sheet, 1 A4 page per member | long derivations, design methods (machine, winding), review |
+| Density | 2 quantities per row, load case tables | 1 quantity per row |
+| `engcalc.py` | not yet (ticket 12) — path A | `CalcSheet` |
 
-Kombinace: list K jako souhrnný posudek, list P jako doložení mezivýpočtů na dalším listu.
+Combination: sheet K as the summary check, sheet P as the record of intermediate steps on another sheet.
 
-## Styl K — anatomie (shora dolů, A4 na výšku)
+## Style K — anatomy (top to bottom, A4 portrait)
 
-1. **Proužek identifikace** (9 pt šedě, tenké mřížky): zdroj/šablona · © · rev. (vstup) · list x/y · datum.
-2. **Název** 16 pt tučně VERZÁLKAMI vlevo; vpravo nahoře **idealizovaná skica se zatížením**
-   (obrázek nebo skupina tvarů; síly červeně, reakce modře, kóty černě kurzívou).
-3. **Sekce** = červený tučný nadpis VERZÁLKAMI 13 pt `C00000`, bez výplně, s jednotkami v
-   závorce běžným písmem: `ROZMĚRY (mm)`.
-4. **Řádek veličiny**: `popis symbol =` zarovnané vpravo | hodnota na střed | jednotka.
-   Symbol kurzívou, index jako dolní index (Formát buněk → Dolní index na části textu, nebo
-   Unicode ₀ ₁ ᵣ ₐ). **Vstup = modré podtržené písmo `0000FF`**, bez výplně; výpočet a katalog černě.
-   Dvě veličiny vedle sebe (levý a pravý blok sloupců).
-5. **Tabulka zatěžovacích stavů / kombinací**: záhlaví kurzívou tučně v rámečku, sloupce
-   ZS 1, ZS 2 (příp. nepříznivý / příznivý), vstupy modře podtržené.
-6. **STAV NÁVRHU** vpravo vedle zatížení: červený popisek + `VYHOVUJE` zeleně `00B050` /
-   `NEVYHOVUJE` červeně, + η max. Pod tím **graf využití**: vodorovné pruhy, každý posudek
-   vlastní barvou, osa 0–125 %, svislá červená čára 100 %, světle modré pozadí plochy
-   `DEEBF7` se zaoblením.
-7. **VÝPOČET A POSUDKY**: tabulka ZS 1 | ZS 2 | √ | vztah. Posudkové řádky tučně, sloupec
-   √ zeleně (✘ červeně), **vztah kurzívou vpravo** (`L_req / L₁₀ₕ ≤ 1`, „viz rovnice na listu Refs“).
-   Pod tabulkou poznámka v závorce kurzívou (co rozhoduje, co je zanedbáno).
-8. **PŘEDPOKLADY** tmavě modrou kurzívou; položky `a)` `b)` … s červeným písmenem, ve 2–3 sloupcích.
-9. Patička: legenda barev, odkaz na normu.
+1. **Identification strip** (9 pt grey, thin grid): source / template · © · rev. (input) · sheet x/y · date.
+2. **Title** 16 pt bold CAPITALS on the left; top right an **idealised sketch with loads**
+   (picture or group of shapes; forces red, reactions blue, dimensions black italic).
+3. **Section** = red bold heading in CAPITALS 13 pt `C00000`, no fill, with units in
+   brackets in normal font: `DIMENSIONS (mm)`.
+4. **Quantity row**: `description symbol =` right aligned | value centred | unit.
+   Symbol in italics, index as subscript (Format Cells → Subscript on part of the text, or
+   Unicode ₀ ₁ ᵣ ₐ). **Input = blue underlined font `0000FF`**, no fill; calculation and
+   catalogue values black. Two quantities side by side (left and right block of columns).
+5. **Load case / combination table**: italic bold header in a frame, columns LC 1, LC 2
+   (or unfavourable / favourable), inputs blue underlined.
+6. **DESIGN STATUS** to the right of the loads: red label + `OK` green `00B050` /
+   `FAILS` red, + η max. Below it a **utilisation chart**: horizontal bars, each check its own
+   colour, axis 0–125 %, vertical red line at 100 %, light blue plot background `DEEBF7` with
+   rounded corners.
+7. **CALCULATION AND CHECKS**: table LC 1 | LC 2 | √ | relation. Check rows bold, the √ column
+   green (✘ red), **relation in italics on the right** (`L_req / L₁₀ₕ ≤ 1`, "see equation on
+   sheet Refs"). Below the table a remark in brackets in italics (what governs, what is neglected).
+8. **ASSUMPTIONS** in dark blue italics; items `a)` `b)` … with a red letter, in 2–3 columns.
+9. Footer: colour legend, reference to the standard.
 
-Bannery a registr ze stylu P platí i tady: `STAV NÁVRHU` je banner, posudkové řádky jsou
-v `80_Kontroly`. Rámec stránky: svislé modré čáry vlevo a vpravo (ohraničení sloupců A a L).
+Banners and the register from style P apply here too: `DESIGN STATUS` is the banner, check rows
+are in `80_Checks`. Page frame: vertical blue lines on the left and right (borders of columns A and L).
 
-## Styl K — technika v Excelu
+## Style K — technique in Excel
 
-| Prvek | Jak |
+| Element | How |
 |---|---|
-| mřížka | skrytá; jemná mřížka jen v proužku identifikace |
-| šířky sloupců | úzká mřížka (např. 12 sloupců po ~6–9 znacích), sekce zarovnané na ni; nic se neslučuje, popisky přetékají doleva přes *Zarovnat vpravo* |
-| modrý podtržený vstup | buňkový styl `ec_input_k` (modré, podtržené, odemčené) + ověření dat |
-| stav návrhu | vzorec + podmíněné formátování (zelená / červená), styl `ec_status_k` |
-| graf využití | pruhový graf ze `chk_eta`, *Formát datového bodu → různé barvy podle bodu*, osa max 1,25, čára 100 % jako druhá řada (XY) nebo chybová úsečka |
-| skica | obrázek (Vložit → Obrázky → Umístit na buňky) nebo skupina tvarů; texty kót propojené na buňky (`=calc_h` v textovém poli) |
-| vztahy | text kurzívou; klíčová rovnice jako objekt Rovnice (Vložit → Rovnice) |
+| grid | hidden; a fine grid only in the identification strip |
+| column widths | narrow grid (e.g. 12 columns of ~6–9 characters), sections aligned to it; nothing merged, labels overflow to the left via *Align right* |
+| blue underlined input | cell style `ec_input_k` (blue, underlined, unlocked) + data validation |
+| design status | formula + conditional formatting (green / red), style `ec_status_k` |
+| utilisation chart | bar chart from `chk_eta`, *Format Data Point → vary colours by point*, axis max 1.25, 100 % line as a second series (XY) or an error bar |
+| sketch | picture (Insert → Pictures → Place over Cells) or a group of shapes; dimension texts linked to cells (`=calc_h` in a text box) |
+| relations | italic text; the key equation as an Equation object (Insert → Equation) |
 
-## Styl P
+## Style P
 
-Viz [visual-language.md](visual-language.md) — mřížka sloupců A–J, tmavé pruhy sekcí,
-žluté vstupy. Implementuje `engcalc.py`.
+See [visual-language.md](visual-language.md) — column grid A–J, dark section bars, yellow
+inputs. Implemented by `engcalc.py`.

@@ -1,121 +1,130 @@
-# Podmínky, posudky, stavy
+# Conditions, checks, statuses
 
-Vzorce jsou v anglické syntaxi (tak se ukládají v souboru a tak je zapisuje Claude in Excel
-přes API). V české lokalizaci Excelu je uživatel uvidí se středníky — chování je stejné.
+Formulas are in English syntax (that is how they are stored in the file and how Claude in
+Excel writes them through the API). In a localised Excel the user sees them with the local
+separators (e.g. semicolons) — behaviour is the same.
 
-## Konvence stavu
+## Status convention
 
-První znak stavového textu nese význam; podmíněné formátování i počítání se řídí jím.
+The first character of the status text carries the meaning; conditional formatting and
+counting rely on it.
 
-| Znak | Text | Kdy |
+| Char | Text | When |
 |---|---|---|
-| ✔ | `✔ VYHOVUJE`, `✔ v mezích`, `✔ <text předpokladu>` | η ≤ `cfg_eta_warn`, podmínka splněna |
-| ▲ | `▲ VYHOVUJE – malá rezerva` | `cfg_eta_warn` < η ≤ 1 |
-| ✘ | `✘ NEVYHOVUJE`, `✘ mimo rozsah`, `✘ NELZE VYHODNOTIT` | η > 1, chyba, nesplněný předpoklad |
-| – | `–` | nehodnoceno (η u bool podmínek) |
+| ✔ | `✔ OK`, `✔ within limits`, `✔ <assumption text>` | η ≤ `cfg_eta_warn`, condition met |
+| ▲ | `▲ OK – low reserve` | `cfg_eta_warn` < η ≤ 1 |
+| ✘ | `✘ FAILS`, `✘ out of range`, `✘ CANNOT EVALUATE` | η > 1, error, assumption not met |
+| – | `–` | not evaluated (η of boolean conditions) |
 
-`cfg_eta_warn` = 0,90 (vstup na `80_Kontroly`, rozsah 0,5–1,0). Uživatel ho může zpřísnit.
+`cfg_eta_warn` = 0.90 (input on `80_Checks`, range 0.5–1.0). The user may tighten it.
 
-## 1. Vstup
+## 1. Input
 
-Ověření dat: *desetinné číslo mezi* lo a hi, chybové hlášení typu **Stop**, vstupní zpráva
-`lo … hi jednotka`. Výběr: *seznam* se zdrojem `=lst_<tabulka>`.
+Data validation: *decimal between* lo and hi, error alert of type **Stop**, input message
+`lo … hi unit`. Selection: *list* with source `=lst_<table>`.
 
-Sloupec G: `⟨lo ; hi⟩ jednotka`. Sloupec I (chytí i vložení přes schránku, které ověření obejde):
+Column G: `⟨lo ; hi⟩ unit`. Column I (also catches values pasted in, which bypass validation):
 
 ```
-=IF(AND(ISNUMBER($E12),$E12>=1,$E12<=12),"✔ v mezích","✘ mimo rozsah")
-=IF(ISNUMBER(MATCH($E15,lst_IPE,0)),"✔ ze seznamu","✘ není v seznamu")
+=IF(AND(ISNUMBER($E12),$E12>=1,$E12<=12),"✔ within limits","✘ out of range")
+=IF(ISNUMBER(MATCH($E15,lst_IPE,0)),"✔ from list","✘ not in list")
 ```
 
-Meze vstupu jsou jediné místo, kde smí být číslo přímo ve vzorci (jsou zdokumentované ve sl. G).
+Input limits are the only place where a number may sit directly in a formula (they are
+documented in col. G).
 
-## 2. Posudek (check)
+## 2. Check
 
-`le`: účinek ≤ odolnost → η = účinek / odolnost. `ge`: hodnota ≥ minimum → η = minimum / hodnota.
+`le`: effect ≤ resistance → η = effect / resistance. `ge`: value ≥ minimum → η = minimum / value.
 
-| Sl. | Obsah |
+| Col. | Content |
 |---|---|
 | D | `η_M =` |
-| E | `=(out_MEd)/(out_McRd)` formát `0.00`, tučně, pojmenovat `chk_M` |
+| E | `=(out_MEd)/(out_McRd)` format `0.00`, bold, named `chk_M` |
 | F | `–` |
 | G | `=FIXED(out_MEd,1)&" ≤ "&FIXED(out_McRd,1)&" kNm"` |
-| H | článek normy |
-| I | stav (níže) |
+| H | clause of the standard |
+| I | status (below) |
 
 ```
-=IF(NOT(ISNUMBER($E40)),"✘ NELZE VYHODNOTIT",
- IF($E40>1,"✘ NEVYHOVUJE",
- IF($E40>cfg_eta_warn,"▲ VYHOVUJE – malá rezerva","✔ VYHOVUJE")))
+=IF(NOT(ISNUMBER($E40)),"✘ CANNOT EVALUATE",
+ IF($E40>1,"✘ FAILS",
+ IF($E40>cfg_eta_warn,"▲ OK – low reserve","✔ OK")))
 ```
 
-`FIXED`, ne `TEXT`: formátovací řetězec `TEXT` závisí na národním nastavení (v české
-lokalizaci `"0.0"` nefunguje), `FIXED` ne.
+`FIXED`, not `TEXT`: the format string of `TEXT` depends on the locale (`"0.0"` does not work
+in every language version), `FIXED` does not.
 
-Rozsahový posudek (lo ≤ x ≤ hi) rozepiš na dva řádky `ge` a `le` — každý má vlastní η.
+A range check (lo ≤ x ≤ hi) is split into two rows `ge` and `le` — each with its own η.
 
-## 3. Podmínka platnosti (condition)
+**`ge` check with a value that can reach zero or go negative** (gap, wall, edge distance):
+write the value as `MAX(x,1e-6)` — otherwise η = minimum / value becomes negative and shows
+✔. With the guard η jumps to a huge number and the status is ✘.
 
-Předpoklad metody, režim, třída — boolean. E: `=IF(podm,"ANO","NE")`, I:
+## 3. Validity condition
 
-```
-=IF(out_VEd<=0.5*out_VplRd,"✔ bez redukce","✘ nutná redukce 6.2.8")
-```
-
-Použij pro: rozsah platnosti metody (Re pro vzorec, štíhlost, třída průřezu, frekvence),
-předpoklady (klopení zajištěno, ustálený stav, lineární materiál), výběr větve výpočtu.
-
-## 4. Dynamická poznámka (remark)
-
-Interpretace pro čtenáře, tučná kurzíva NOTE_FONT ve sl. E (přetéká doprava):
+Assumption of the method, regime, class — boolean. E: `=IF(cond,"YES","NO")`, I:
 
 ```
-=IF(calc_Re>4000,"Re > 4000 → turbulentní proudění, f z Colebrooka",
- IF(calc_Re<2300,"Re < 2300 → laminární, f = 64/Re","přechodová oblast – výsledek nejistý"))
+=IF(out_VEd<=0.5*out_VplRd,"✔ no reduction","✘ reduction 6.2.8 required")
 ```
 
-Když remark říká „mimo rozsah“, patří k němu i `condition`, aby to zachytil banner.
+Use for: scope of the method (Re for a formula, slenderness, section class, frequency, size
+range of a table), assumptions (LTB restrained, steady state, linear material), choice of a
+calculation branch.
 
-## 5. Registr `80_Kontroly`
+## 4. Dynamic remark
 
-Tabulka od ř. 11: `# | Posudek | Symbol | η | Stav | List | Odkaz | fail | warn`.
-Číselné posudky první (graf využití čte souvislý blok η), pak podmínky, pak řádek
-„Vstupy listu X v povolených mezích“ za každý výpočtový list:
-
-```
-η:     =IF(ISNUMBER('10_Posudek'!$E$40),'10_Posudek'!$E$40,"–")
-Stav:  ='10_Posudek'!$I$40
-Odkaz: =HYPERLINK("#'10_Posudek'!C40","→ ř. 40")
-fail:  =IF(LEFT(F11,1)="✘",1,0)
-warn:  =IF(LEFT(F11,1)="▲",1,0)
-vstupy:=IF(COUNTIF('10_Posudek'!$I$12:$I$18,"✘*")=0,"✔ všechny vstupy v mezích",
-        "✘ vstupy mimo rozsah: "&COUNTIF('10_Posudek'!$I$12:$I$18,"✘*"))
-```
-
-Názvy: `chk_eta` (sl. E), `chk_fail` (sl. I), `chk_warn` (sl. J). Data bar na η: min 0, max 1,2, BLUE.
-Registr je generovaný — jediný list, kde jsou odkazy adresou místo jménem.
-
-## 6. Banner (ř. 5 každého listu)
+Interpretation for the reader, bold italic NOTE_FONT in col. E (overflows to the right):
 
 ```
-=IF(SUM(chk_fail)>0,"✘ NEVYHOVUJE – počet nesplněných podmínek: "&SUM(chk_fail),
- IF(SUM(chk_warn)>0,"▲ VYHOVUJE S MALOU REZERVOU – posudků: "&SUM(chk_warn),
- "✔ VŠECHNY POSUDKY A PODMÍNKY VYHOVUJÍ"))
+=IF(calc_Re>4000,"Re > 4000 → turbulent flow, f from Colebrook",
+ IF(calc_Re<2300,"Re < 2300 → laminar, f = 64/Re","transition region – result uncertain"))
+```
+
+When a remark says "out of scope", add a `condition` so that the banner catches it.
+
+## 5. Register `80_Checks`
+
+Table from row 11: `# | Check | Symbol | η | Status | Sheet | Link | fail | warn`.
+Numeric checks first (the utilisation chart reads a contiguous η block), then conditions,
+then one row "Inputs of sheet X within allowed limits" per calculation sheet:
+
+```
+η:      =IF(ISNUMBER('10_Beam'!$E$40),'10_Beam'!$E$40,"–")
+Status: ='10_Beam'!$I$40
+Link:   =HYPERLINK("#'10_Beam'!C40","→ row 40")
+fail:   =IF(LEFT(F11,1)="✘",1,0)
+warn:   =IF(LEFT(F11,1)="▲",1,0)
+inputs: =IF(COUNTIF('10_Beam'!$I$12:$I$18,"✘*")=0,"✔ all inputs within limits",
+         "✘ inputs out of range: "&COUNTIF('10_Beam'!$I$12:$I$18,"✘*"))
+```
+
+Names: `chk_eta` (col. E), `chk_fail` (col. I), `chk_warn` (col. J). Data bar on η: min 0,
+max 1.2, BLUE. The register is generated — the only sheet where references are addresses
+instead of names.
+
+## 6. Banner (row 5 of every sheet)
+
+```
+=IF(SUM(chk_fail)>0,"✘ FAILS – conditions not met: "&SUM(chk_fail),
+ IF(SUM(chk_warn)>0,"▲ OK WITH LOW RESERVE – checks: "&SUM(chk_warn),
+ "✔ ALL CHECKS AND CONDITIONS SATISFIED"))
  &"     η max = "&IF(COUNT(chk_eta)>0,FIXED(MAX(chk_eta),2),"–")
 ```
 
-## 7. Podmíněné formátování
+## 7. Conditional formatting
 
-Jedna sada pravidel na celý sloupec stavu listu (`I9:I<poslední>`), vzorec s relativním řádkem,
-v tomto pořadí, *zastavit, pokud platí*:
+One set of rules for the whole status column of a sheet (`I9:I<last>`), formula with a
+relative row, in this order, *stop if true*:
 
-| Pravidlo (vzorec) | Výplň | Písmo |
+| Rule (formula) | Fill | Font |
 |---|---|---|
-| `LEFT($I9,1)="✘"` | `FFC7CE` | `9C0006` tučně |
-| `LEFT($I9,1)="▲"` | `FFEB9C` | `9C5700` tučně |
-| `LEFT($I9,1)="✔"` | `C6EFCE` | `006100` tučně |
+| `LEFT($I9,1)="✘"` | `FFC7CE` | `9C0006` bold |
+| `LEFT($I9,1)="▲"` | `FFEB9C` | `9C5700` bold |
+| `LEFT($I9,1)="✔"` | `C6EFCE` | `006100` bold |
 | `LEFT($I9,1)="–"` | `EDEDED` | `595959` |
 
-Navíc na sloupec hodnot `E9:E<poslední>`: `LEFT($I9,1)="✘"` → FAIL výplň (vstup mimo rozsah
-i nevyhovující η zčervená přímo v hodnotě). Stejná čtveřice na banner (`$B$5`).
-Žádné ikony ani barevné škály na stavy — text + barva stačí a tiskne se.
+Plus on the value column `E9:E<last>`: `LEFT($I9,1)="✘"` → FAIL fill (an input out of range
+and a failing η turn red right in the value). The same four rules on the banner (`$B$5`).
+No icons or colour scales on statuses — text + colour is enough and prints.

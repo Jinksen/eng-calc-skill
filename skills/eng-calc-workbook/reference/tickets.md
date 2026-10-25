@@ -1,60 +1,65 @@
-# Cesta D — rozpad sešitu na tickety
+# Path D — splitting a workbook into tickets
 
-Velký výpočtový sešit se staví jako **tracer bullets**: každý ticket protáhne úzký, ale
-**úplný** řez všemi vrstvami — vstup → výpočet → posudek v registru → banner → řádek na
-přehledu — a po dokončení je ověřitelný sám o sobě (verify exit 0, ruční kontrola čísla).
-Ne „nejdřív všechny vstupy, pak všechny vzorce“: horizontální vrstva nejde ověřit.
+A large calculation workbook is built as **tracer bullets**: each ticket pulls a narrow but
+**complete** slice through all layers — input → calculation → check in the register →
+banner → row on the overview — and when done it can be verified on its own (verify exit 0,
+hand check of a number). Not "all inputs first, then all formulas": a horizontal layer cannot
+be verified.
 
-## 1. Kontext
+## 1. Context
 
-Ze specifikace (SKILL.md §1) nebo konverzace vypiš posudky a podmínky platnosti — to jsou
-přirozené hranice řezů. Existující sešit nejdřív projdi (listy, názvy, vstupy).
+From the specification (SKILL.md §1) or the conversation, list the checks and validity
+conditions — they are the natural slice boundaries. Read an existing workbook first (sheets,
+names, inputs).
 
-## 2. Řezy
+## 2. Slices
 
-- **01 Kostra** (vždy první, nic ji neblokuje): README identifikace, `80_Kontroly` s
-  `cfg_eta_warn`, prázdný calc list s hlavičkou a bannerem, jeden vstup a jeden posudek
-  napříč celou cestou. Hotovo = banner reaguje na vstup za mezí.
-- **Databáze** jako vlastní ticket jen pokud ji potřebuje víc řezů; jinak patří do prvního řezu, který ji používá.
-- **Jeden posudek (nebo úzká skupina se sdílenými mezivýsledky) = jeden ticket**: jeho vstupy,
-  konstanty se zdroji, kroky, check/condition, řádek registru, referenční hodnota.
-- **Grafika** (živá skica, průběhy, přehled) po posudcích, které zobrazuje.
-- **Předávka** poslední: README úplné, zámek, tisk, checklist, revize.
-- Ticket se vejde do jedné session. Sdílený mezivýsledek → ticket, který ho zavádí, blokuje ostatní.
+- **01 Skeleton** (always first, blocked by nothing): README identification, `80_Checks` with
+  `cfg_eta_warn`, an empty calc sheet with title block and banner, one input and one check
+  through the whole path. Done = the banner reacts to an input beyond its limit.
+- **Database** as its own ticket only if several slices need it; otherwise it belongs to the
+  first slice that uses it.
+- **One check (or a narrow group with shared intermediate results) = one ticket**: its inputs,
+  constants with sources, steps, check / condition, register row, reference value.
+- **Graphics** (live sketch, drawing, diagrams, overview) after the checks it shows.
+- **Handover** last: complete README, protection, printing, checklist, revision.
+- A ticket fits into one session. A shared intermediate result → the ticket that introduces
+  it blocks the others.
 
-**Přestavba starého sešitu** (široká změna, např. přejmenování na standard): expand–contract —
-nejdřív nová struktura vedle staré (výsledky se porovnávají), pak převod list po listu
-(ticket na list, blokovaný expand), nakonec odstranění staré verze (blokované všemi převody).
+**Rebuilding an old workbook** (a broad change, e.g. renaming to the standard): expand–contract
+— first the new structure next to the old one (results are compared), then conversion sheet by
+sheet (one ticket per sheet, blocked by the expand), finally removal of the old version
+(blocked by all conversions).
 
-## 3. Kvíz
+## 3. Quiz
 
-Předlož číslovaný seznam: **Název** · **Blokováno** · **Co dodá** (posudek, který začne
-fungovat end-to-end). Zeptej se: sedí granularita? sedí blokující hrany? sloučit/rozdělit?
-Iteruj do schválení.
+Present a numbered list: **Title** · **Blocked by** · **Delivers** (the check that starts
+working end to end). Ask: is the granularity right? are the blocking edges right? merge /
+split? Iterate until approved.
 
-## 4. Publikace
+## 4. Publishing
 
-Jeden soubor na ticket, číslováno v pořadí závislostí (blokující první):
-`.scratch/<sesit-slug>/issues/<NN>-<slug>.md` (v projektu / repozitáři uživatele;
-v Claude in Excel je předlož v odpovědi jako seznam ke zkopírování).
+One file per ticket, numbered in dependency order (blockers first):
+`.scratch/<workbook-slug>/issues/<NN>-<slug>.md` (in the user's project / repository; in
+Claude in Excel present them in the answer as a list to copy).
 
 ```markdown
-# <NN> — <Název>
+# <NN> — <Title>
 
-**Co dodá:** posudek / funkce, která po ticketu funguje end-to-end, z pohledu uživatele sešitu.
+**Delivers:** the check / feature that works end to end after the ticket, from the workbook user's view.
 
-**Blokováno:** <NN — název>, nebo „Nic — lze začít hned“.
+**Blocked by:** <NN — title>, or "Nothing — can start now".
 
 **Status:** ready-for-agent
 
-**Reference:** zdroj metodiky (norma, článek), referenční případ s očekávanou hodnotou.
+**Reference:** source of the method (standard, clause), reference case with the expected value.
 
-- [ ] Vstupy s rozsahem/seznamem a stavem ve sl. I
-- [ ] Konstanty se zdrojem
-- [ ] Posudek(y) v registru, η a stav správně
-- [ ] Referenční případ: <veličina> = <hodnota> ± <tolerance>
-- [ ] verify exit 0 (cesta B) / checklist excel-in-place (cesta A)
+- [ ] Inputs with range / list and status in col. I
+- [ ] Constants with a source
+- [ ] Check(s) in the register, η and status correct
+- [ ] Reference case: <quantity> = <value> ± <tolerance>
+- [ ] verify exit 0 (path B) / excel-in-place checklist (path A)
 ```
 
-Pracuj na **frontě**: ticket, jehož blokující jsou hotové. Bez konkrétních adres buněk v
-ticketu — stárnou; jména (`out_MEd`) ano.
+Work as a **queue**: a ticket whose blockers are done. No concrete cell addresses in a ticket
+— they go stale; names (`out_MEd`) are fine.

@@ -1,67 +1,70 @@
-# Cesta A — živě v sešitu (Claude in Excel / ruční stavba)
+# Path A — live in the workbook (Claude in Excel / manual build)
 
-Claude in Excel pracuje přímo nad otevřeným sešitem: zapisuje hodnoty a vzorce, formátuje,
-přidává podmíněné formátování a ověření dat, pracuje napříč listy. **Nespouští Python ani VBA**
-a nepodporuje tabulky dat (What-If Data Table). Celý standard proto stojí na nativních
-prvcích Excelu — výsledek je stejný jako z cesty B.
+Claude in Excel works directly on the open workbook: it writes values and formulas, formats,
+adds conditional formatting and data validation, works across sheets. **It does not run
+Python or VBA** and does not support What-If Data Tables. The whole standard therefore rests
+on native Excel features — the result is the same as from path B.
 
-## Pořadí stavby
+## Build order
 
-Stav po každém kroku musí jít přepočítat bez chyb. Postupuj po listech, ne po vrstvách.
+The state after every step must recalculate without errors. Work sheet by sheet, not layer by layer.
 
-1. **Styly buňky** (Domů → Styly buňky → Nový styl), názvy přesně: `ec_input`, `ec_select`,
-   `ec_const`, `ec_calc`, `ec_link`, `ec_aux`, `ec_result`, `ec_h1`, `ec_h2`, `ec_colhead`,
-   `ec_status`, `ec_note` — vlastnosti v [visual-language.md](visual-language.md). Když API
-   styly vytvářet neumí, formátuj přímo podle stejných tokenů; názvy stylů pak zmiň v README.
-2. **`00_README`** — identifikace v C5:C13, každá buňka pojmenovaná `meta_project`,
-   `meta_title`, `meta_subject`, `meta_org`, `meta_std`, `meta_author`, `meta_checker`,
-   `meta_rev`, `meta_date`. Zbytek README až na konci.
-3. **`80_Kontroly`** — hlavička, `cfg_eta_warn` v E8 = 0,90 s ověřením 0,5–1,0, záhlaví
-   registru ř. 10. Řádky registru se doplňují s každým posudkem.
-4. **Databáze `9x_`** — Excel tabulka (Vložit → Tabulka) s názvem `tbl_<x>`, hodnoty ve stylu
-   const, nad tabulkou řádek „Zdroj: …“. Pojmenuj sloupce `db_<x>_<sloupec>`, klíčový sloupec
-   `db_<x>_key` a stejný rozsah `lst_<x>` pro rozbalovací seznamy.
-5. **Výpočtový list `1x_`** — šířky sloupců A–J, hlavička ř. 1–7, ukotvit příčky na A8,
-   mřížka vypnutá. Pak sekce po sekcích (typy řádků v SKILL.md §3, vzorce v
-   [conditions.md](conditions.md)). Každou hodnotu pojmenuj hned při zápisu.
-6. **Posudky** — za každý `check`/`condition` přidej řádek do registru `80_Kontroly`
-   (číselné nad podmínky) a rozšiř názvy `chk_eta`, `chk_fail`, `chk_warn`.
-7. **Banner** na ř. 5 všech listů + podmíněné formátování (conditions.md §6–7).
-8. **Grafy** — data do `91_Grafdata` (souřadnice skici, body průběhu), XY bodový graf
-   s čarami bez značek; skica: osy skryté, stejný rozsah x a y, čtvercová plocha.
-   Když v prostředí nejde graf vložit, připrav datový blok a napiš uživateli jednou větou,
-   který rozsah vložit jako *XY bodový s rovnými čarami*.
-9. **README** — účel, rozsah platnosti, předpoklady, postup, legenda (vzorek každého stylu),
-   obsah s `HYPERLINK("#'list'!A1",…)`, zdroje, revizní log.
-10. **Zámek a tisk** — odemknout jen vstupy, zamknout listy bez hesla; oblast tisku, tisk
-    ř. 1–7 na každé stránce, A4 na šířku stránky, zápatí.
+1. **Cell styles** (Home → Cell Styles → New Cell Style), names exactly: `ec_input`,
+   `ec_select`, `ec_const`, `ec_calc`, `ec_link`, `ec_aux`, `ec_result`, `ec_h1`, `ec_h2`,
+   `ec_colhead`, `ec_status`, `ec_note` — properties in [visual-language.md](visual-language.md).
+   If the API cannot create styles, format directly with the same tokens and mention the style
+   names in the README.
+2. **`00_README`** — identification in C5:C13, each cell named `meta_project`, `meta_title`,
+   `meta_subject`, `meta_org`, `meta_std`, `meta_author`, `meta_checker`, `meta_rev`,
+   `meta_date`. The rest of the README at the end.
+3. **`80_Checks`** — title block, `cfg_eta_warn` in E8 = 0.90 with validation 0.5–1.0,
+   register header in row 10. Register rows are added with every check.
+4. **Databases `9x_`** — an Excel table (Insert → Table) named `tbl_<x>`, values in the const
+   style, a "Source: …" row above the table. Name the columns `db_<x>_<column>`, the key
+   column `db_<x>_key` and the same range `lst_<x>` for dropdowns.
+5. **Calculation sheet `1x_`** — column widths A–J, title block rows 1–7, freeze panes at A8,
+   gridlines off. Then section by section (row types in SKILL.md §3, formulas in
+   [conditions.md](conditions.md)). Name every value as you write it — and remember that names
+   are case-insensitive.
+6. **Checks** — for every `check`/`condition` add a row to the `80_Checks` register (numeric
+   above conditions) and extend the names `chk_eta`, `chk_fail`, `chk_warn`.
+7. **Banner** in row 5 of every sheet + conditional formatting (conditions.md §6–7).
+8. **Charts** — data into `91_ChartData` (sketch coordinates, diagram points), XY scatter with
+   lines and no markers; sketch: axes hidden, equal x and y range, square plot area. Drawings
+   per [part-drawing.md](part-drawing.md). If a chart cannot be inserted in the environment,
+   prepare the data block and tell the user in one sentence which range to insert as
+   *Scatter with straight lines*.
+9. **README** — purpose, scope of validity, assumptions, workflow, legend (a sample of every
+   style), contents with `HYPERLINK("#'sheet'!A1",…)`, sources, revision log.
+10. **Lock and print** — unlock inputs only, protect sheets without a password; print area,
+    print rows 1–7 on every page, A4 fit to page width, footer.
 
-## Úprava existujícího sešitu
+## Changing an existing workbook
 
-- Nejdřív přečti strukturu (listy, názvy, kde jsou vstupy) a navrhni mapování na standard;
-  přestavbu dělej list po listu se zachovanými výsledky (před/po porovnej klíčová čísla).
-- Hodnotu natvrdo ve vzorci vytáhni do `const`/`input` řádku se zdrojem.
-- Před přepsáním obsazených buněk potvrď s uživatelem.
+- First read the structure (sheets, names, where the inputs are) and propose a mapping to the
+  standard; rebuild sheet by sheet keeping the results (compare key numbers before / after).
+- Pull a hard-coded value out of a formula into a `const`/`input` row with a source.
+- Confirm with the user before overwriting occupied cells.
 
-## Náhrady za funkce mimo dosah
+## Substitutes for features out of reach
 
-| Chci | Nativní náhrada |
+| I want | Native substitute |
 |---|---|
-| přepínač / zaškrtávátko (Form Controls, VBA) | výběr ze seznamu `ANO;NE` nebo 0/1 s ověřením dat |
-| iterace (Hledání řešení, cyklus) | rozepsaná iterace v řádcích + `condition` konvergence ([patterns.md](patterns.md)) |
-| Data Table pro citlivost | sloupce variant se stejným vzorcem ([patterns.md](patterns.md)) |
-| tlačítko „přepočítat“ | není potřeba — vše jsou vzorce |
-| obrázek rovnice | vztah zápisem ve sl. G (Unicode: ², ³, √, ·, ≤, γ, η, σ, Δ) |
+| option button / check box (Form Controls, VBA) | dropdown `YES;NO` or 0/1 with data validation |
+| iteration (Goal Seek, circular reference) | iteration written out in rows + `condition` convergence ([patterns.md](patterns.md)) |
+| Data Table for sensitivity | variant columns with the same formula ([patterns.md](patterns.md)) |
+| a "recalculate" button | not needed — everything is formulas |
+| an equation picture | relation as written in col. G (Unicode: ², ³, √, ·, ≤, γ, η, σ, Δ) |
 
-## Checklist před předáním
+## Checklist before handover
 
 ```
-[ ] Žádná chybová hodnota v sešitu
-[ ] Každý vstup: ověření dat + stav ve sl. I; mimo rozsah → banner ✘ (vyzkoušeno)
-[ ] Každá konstanta a posudek: zdroj ve sl. H
-[ ] Každý výpočet: jednotka (F) a vztah (G); žádné nevysvětlené číslo ve vzorci
-[ ] Všechny posudky v 80_Kontroly, názvy chk_* pokrývají celý registr
-[ ] Banner na každém listu, barvy stavů fungují
-[ ] Referenční případ sedí; jeden posudek přepočítán ručně
-[ ] README kompletní, revize zapsaná; listy zamčené, tisk nastavený
+[ ] No error value in the workbook
+[ ] Every input: data validation + status in col. I; out of range → banner ✘ (tried)
+[ ] Every constant and check: source in col. H
+[ ] Every calculation: unit (F) and relation (G); no unexplained number in a formula
+[ ] All checks in 80_Checks, the chk_* names cover the whole register
+[ ] Banner on every sheet, status colours work
+[ ] Reference case matches; one check recomputed by hand
+[ ] README complete, revision recorded; sheets protected, printing set up
 ```

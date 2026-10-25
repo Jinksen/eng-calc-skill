@@ -1,192 +1,209 @@
 ---
 name: eng-calc-workbook
 description: >
-  Inženýrský výpočtový sešit v Excelu (elektro, strojní, stavební): kalkulátor,
-  posudek, návrh, protokol měření nebo dashboard s podmínkami „vyhovuje / nevyhovuje“,
-  včetně vizualizace v sešitu — parametrický výkres / řez dílu s kótami a tolerancemi,
-  živá skica, interaktivní dashboard (posuvníky, přepínače, ukazatele), tvary a schémata.
-  Použij, když uživatel vytváří, přestavuje nebo kontroluje .xlsx s technickým výpočtem,
-  chce v Excelu nakreslit nebo vizualizovat díl, průřez, sestavu či průběh, ptá se jak
-  výpočet v Excelu uspořádat, pracuje přímo v sešitu přes Claude in Excel, nebo chce
-  rozpadnout větší výpočtový sešit na tickety. Platí i pro LibreOffice Calc.
+  Engineering calculation workbooks in Excel (electrical, mechanical, civil): calculators,
+  design checks, sizing, test reports or dashboards with pass / fail conditions, including
+  visualisation inside the workbook — parametric part drawings and sections with dimensions
+  and tolerances, live sketches, interactive dashboards (sliders, option buttons, gauges),
+  shapes and diagrams. Use when the user creates, rebuilds or reviews an .xlsx with a
+  technical calculation, wants to draw or visualise a part, cross-section, assembly or
+  diagram in Excel, wants a printable calculation report / data sheet (formulas with
+  substituted values, tables with totals, small sketches, signatures), asks how to lay out a calculation in Excel, works directly in a workbook
+  through Claude in Excel, or wants to split a larger calculation workbook into tickets.
+  Also applies to LibreOffice Calc.
 ---
 
-# Inženýrský výpočtový sešit
+# Engineering calculation workbook
 
-## Pro agenta — o co jde (přečti první)
+## For the agent — what this is about (read first)
 
-- **Kdo a proč**: uživatel je český inženýr (elektro / strojní / stavební). Chce sešity,
-  které obstojí jako příloha technické zprávy: dohledatelné vstupy, zdroje z norem,
-  viditelné posudky, a **hodně vizuálu** — skici a výkresy dílů, grafy, ovládací prvky.
-- **Co odevzdáváš**: buď změny přímo v otevřeném sešitu (Claude in Excel), nebo `.xlsx`
-  vygenerovaný `scripts/engcalc.py`. Vždy ověřený (§6) a s ruční kontrolou v odpovědi.
-- **Jazyk**: listy, popisky, README i odpovědi česky; desetinná čárka v textu, vzorce
-  podle lokalizace prostředí. Normy ČSN EN, jednotky SI.
-- **Vizualizace je výpočet**: každý obrázek, tvar, kóta či ukazatel je propojený s buňkou a
-  mění se se vstupy. Kreslení dílu → [reference/part-drawing.md](reference/part-drawing.md),
-  dashboard s ovládacími prvky → [reference/dashboard-widgets.md](reference/dashboard-widgets.md).
-- **Neodhaduj**: hodnota z normy bez zdroje, extrapolace mimo tabulku nebo vymyšlený vstup
-  je chyba. Ptej se, nebo zapiš předpoklad do README.
+- **Who and why**: the user is an engineer (electrical / mechanical / civil). They want
+  workbooks that hold up as an appendix to a technical report: traceable inputs, sources from
+  standards, visible checks, and **plenty of visuals** — part sketches and drawings, charts,
+  controls.
+- **What you deliver**: either changes directly in the open workbook (Claude in Excel) or an
+  `.xlsx` generated with `scripts/engcalc.py`. Always verified (§6), with a hand check in your
+  answer.
+- **Language**: reply in the user's language and write the workbook in it too (sheet labels,
+  README); the reference builds are in English. Standards EN / ISO (national editions such as
+  ČSN EN are fine), SI units.
+- **Visualisation is calculation**: every picture, shape, dimension or gauge is linked to a
+  cell and follows the inputs. Part drawings → [reference/part-drawing.md](reference/part-drawing.md),
+  dashboards with controls → [reference/dashboard-widgets.md](reference/dashboard-widgets.md).
+- **Never guess**: a value from a standard without a source, extrapolation outside a table or
+  an invented input is an error. Ask, or record it as an assumption in the README.
 
-### Související skilly — načti je automaticky, když jsou k dispozici
+### Related skills — load them automatically when available
 
-Skill sám jiný skill spustit neumí; ty (agent) ano. Když máš nástroj na skills a úloha
-odpovídá řádku, **načti ho hned po tomto skillu, bez ptaní**. Když není dostupný, pokračuj
-jen s tímto.
+A skill cannot start another skill; you (the agent) can. When you have a skills tool and the
+task matches a row, **load that skill right after this one, without asking**. If it is not
+available, continue with this one.
 
-| Když úloha obsahuje | Načti | Na co |
+| When the task involves | Load | For |
 |---|---|---|
-| čtení / zápis souborů `.xlsx`, přepočet vzorců | `xlsx` | práce se souborem, recalc |
-| asynchronní motor, transformátor, generátor, JTP/MTP | `electrical-machine-calc` | metodika výpočtu stroje |
-| grafy, barvy sérií, dashboard mimo Excel (HTML) | `dataviz` | pravidla grafů |
-| schéma elektroinstalace, výkres v QElectroTech / FreeCAD | `freecad-qelectrotech` | výkres mimo Excel |
-| díl z Inventoru (parametry, iLogic) | `ilogic-inventor` | převzetí rozměrů a parametrů |
-| PDF normy nebo katalogu jako zdroj | `pdf` | vytažení tabulek |
+| reading / writing `.xlsx` files, recalculating formulas | `xlsx` | file handling, recalculation |
+| induction motor, transformer, generator, CT / VT | `electrical-machine-calc` | machine design method |
+| charts, series colours, dashboards outside Excel (HTML) | `dataviz` | chart rules |
+| electrical installation schematics, drawings in QElectroTech / FreeCAD | `freecad-qelectrotech` | drawings outside Excel |
+| a part from Inventor (parameters, iLogic) | `ilogic-inventor` | taking over dimensions and parameters |
+| a PDF of a standard or catalogue as a source | `pdf` | extracting tables |
 
-Tento skill **nahrazuje** dřívější `excel-design`, `python-openpyxl-engineering` a
-`vba-excel-engineering`. Jsou-li zapnuté současně, platí pravidla tohoto skillu.
+This skill **replaces** the earlier `excel-design`, `python-openpyxl-engineering` and
+`vba-excel-engineering`. If they are enabled at the same time, the rules of this skill win.
 
-Cíl: **calc pad** — sešit, který se čte jako ruční výpočet ve zprávě. Shora dolů:
-hlavička → **banner stavu** → vstupy → kroky výpočtu → **posudky** → výsledek.
-Každá podmínka má využití **η** a stav ✔ / ▲ / ✘; jeden banner nahoře říká, jestli se
-výsledek smí použít. Kdokoli za rok musí umět odpovědět: odkud je to číslo, co smím
-měnit, čím je to ověřené, kde končí platnost.
+---
 
-Vizuální jazyk (barvy, mřížka sloupců, styly, hlavička) je **jediný zdroj pravdy** v
-[reference/visual-language.md](reference/visual-language.md). Vzorce stavů, banneru a
-pravidla podmíněného formátování v [reference/conditions.md](reference/conditions.md).
-Obě cesty sestavení (A i B) z nich vycházejí beze změny.
+Goal: a **calc pad** — a workbook that reads like a hand calculation in a report. Top to
+bottom: title block → **status banner** → inputs → calculation steps → **checks** → result.
+Every condition has a utilisation **η** and a status ✔ / ▲ / ✘; one banner at the top says
+whether the result may be used. Anyone a year from now must be able to answer: where does this
+number come from, what may I change, what verifies it, where does validity end.
 
-## 0. Urči cestu
+The visual language (colours, column grid, styles, title block) has a **single source of
+truth** in [reference/visual-language.md](reference/visual-language.md). Status formulas, the
+banner and conditional formatting rules are in [reference/conditions.md](reference/conditions.md).
+Both build paths (A and B) use them unchanged.
 
-| Prostředí | Cesta |
+## 0. Choose the path
+
+| Environment | Path |
 |---|---|
-| Claude in Excel, nebo uživatel chce úpravy přímo v otevřeném sešitu | **A – živě v sešitu** → [reference/excel-in-place.md](reference/excel-in-place.md) |
-| Máš shell + Python (claude.ai, Claude Code) a výstupem je soubor | **B – generovaný soubor** → [reference/python-engcalc.md](reference/python-engcalc.md) |
-| Uživatel přinesl existující sešit ke kontrole | **C – revize**: krok 1, pak [reference/review.md](reference/review.md) |
-| Víc než ~3 listy výpočtu nebo víc posudků, než se vejde do jedné session | **D – tickety** → [reference/tickets.md](reference/tickets.md), pak A/B po ticketech |
+| Claude in Excel, or the user wants changes in the open workbook | **A – live in the workbook** → [reference/excel-in-place.md](reference/excel-in-place.md) |
+| You have a shell + Python (claude.ai, Claude Code) and the output is a file | **B – generated file** → [reference/python-engcalc.md](reference/python-engcalc.md) |
+| The user brought an existing workbook for review | **C – review**: step 1, then [reference/review.md](reference/review.md) |
+| More than ~3 calculation sheets or more checks than fit into one session | **D – tickets** → [reference/tickets.md](reference/tickets.md), then A/B ticket by ticket |
 
-Hotovo, když je cesta zvolená a příslušný reference soubor načtený.
+Done when the path is chosen and its reference file is loaded.
 
-## 1. Specifikace výpočtu (před první buňkou)
+## 1. Calculation specification (before the first cell)
 
-Sepiš a nech uživatele potvrdit tabulku — bez ní se nestaví:
+Write down this table and have the user confirm it — nothing is built without it:
 
-| Položka | Obsah |
+| Item | Content |
 |---|---|
-| Účel a obor | co se posuzuje, elektro / strojní / stavební (určuje akcent barvy) |
-| Vstupy | symbol, popis, jednotka SI, **min–max** nebo **seznam**, zdroj |
-| Konstanty | hodnota, jednotka, **norma + článek / tabulka** |
-| Databáze | katalogy (průřezy, kabely, materiály) → listy `9x_` |
-| Kroky | vztah zápisem + zdroj, v pořadí výpočtu |
-| Posudky | „účinek ≤ odolnost“ nebo „hodnota ≥ minimum“ → η, zdroj podmínky |
-| Podmínky platnosti | předpoklady metody (režim, rozsah, třída) → `condition` řádky |
-| Referenční případ | známý výsledek (příklad z normy/literatury, ruční výpočet) pro ověření |
-| Cílová platforma | Excel 365 / 2021 / 2016 / LibreOffice — rozhoduje, které funkce smíš použít |
+| Purpose and field | what is checked; electrical / mechanical / civil (sets the accent colour) |
+| Inputs | symbol, description, SI unit, **min–max** or **list**, source |
+| Constants | value, unit, **standard + clause / table** |
+| Databases | catalogues (sections, cables, materials, tolerances) → sheets `9x_` |
+| Steps | relation as written + source, in calculation order |
+| Checks | "effect ≤ resistance" or "value ≥ minimum" → η, source of the condition |
+| Validity conditions | assumptions of the method (regime, range, class) → `condition` rows |
+| Reference case | a known result (worked example from a standard / textbook, hand calculation) |
+| Target platform | Excel 365 / 2021 / 2016 / LibreOffice — decides which functions you may use |
 
-Chybějící parametr nedomýšlej — zeptej se, nebo ho označ jako předpoklad do README.
-Hotovo, když má každý posudek obě strany nerovnosti a zdroj, každý vstup rozsah.
+Do not make up a missing parameter — ask, or mark it as an assumption in the README.
+Done when every check has both sides of the inequality and a source, and every input a range.
 
-Pro obor sáhni do [reference/domains.md](reference/domains.md) (typické posudky a meze
-pro elektro / strojní / stavební).
+For the field, see [reference/domains.md](reference/domains.md) (typical checks and limits
+for electrical / mechanical / civil).
 
-## 2. Kostra sešitu
+## 2. Workbook skeleton
 
-| List | Obsah |
+| Sheet | Content |
 |---|---|
-| `00_README` | identifikace (pojmenované `meta_*`), účel, rozsah platnosti, předpoklady, postup, legenda, obsah s odkazy, zdroje, revizní log |
-| `01_Prehled` | dashboard: banner, KPI dlaždice, živá skica, průběhy, graf využití — **jen odkazy** |
-| `1x_*` | výpočtové listy (calc pad), jeden na logický celek |
-| `80_Kontroly` | registr všech posudků a podmínek, `cfg_eta_warn`, souhrnné `chk_eta/chk_fail/chk_warn` |
-| `9x_*` | databáze (Excel tabulky) a data grafů |
+| `00_README` | identification (named `meta_*`), purpose, scope of validity, assumptions, workflow, legend, contents with links, sources, revision log |
+| `01_Overview` | dashboard: banner, KPI tiles, live sketch / drawing, diagrams, utilisation chart — **references only** |
+| `1x_*` | calculation sheets (calc pad), one per logical unit |
+| `2x_*` | drawings (part drawing, schematic) — [reference/part-drawing.md](reference/part-drawing.md) |
+| `7x_*` | **printable report** (style R): procedure with substituted values, tables, sketches, signatures — [reference/report-sheet.md](reference/report-sheet.md) |
+| `80_Checks` | register of all checks and conditions, `cfg_eta_warn`, totals `chk_eta/chk_fail/chk_warn` |
+| `9x_*` | databases (Excel tables) and chart / drawing data |
 
-Tok dat jedním směrem: vstupy → výpočet → posudky → přehled. Názvy listů `NN_Ascii`.
-Žádné skryté listy/řádky. Hotovo, když všechny listy existují s hlavičkou a bannerem.
+Data flows one way: inputs → calculation → checks → overview. Sheet names `NN_Ascii`.
+No hidden sheets / rows. Done when all sheets exist with a title block and banner.
 
-## 3. Výpočtový list
+## 3. Calculation sheet
 
-**Styl** podle [reference/sheet-styles.md](reference/sheet-styles.md): hlavní posudek jako
-**kompaktní posudkový list K** (styl TCC: červené sekce, modré podtržené vstupy, skica se
-zatížením vpravo nahoře, stav návrhu s grafem využití, tabulka zatěžovacích stavů se vztahy,
-předpoklady a)–f)); dlouhá odvození jako **calc pad P**. Obsah a pravidla níže platí pro oba.
+**Style** per [reference/sheet-styles.md](reference/sheet-styles.md): the main check as a
+**compact check sheet K** (TCC style: red section headings, blue underlined inputs, sketch with
+loads top right, design status with a utilisation chart, load case table with relations,
+assumptions a)–f)); long derivations as **calc pad P**; for printing / PDF add a **report sheet R** that only reads
+from them ([reference/report-sheet.md](reference/report-sheet.md)). Content and rules below apply to all.
 
-**Vizuál naplno**: buňkové styly a motiv, vlastní formáty čísel, podmíněné formátování,
-datové pruhy, minigrafy, obrázky v buňce měněné výběrem, tvary s textem propojeným na buňky,
-živé skici z grafů, propojené obrázky — katalog v [reference/excel-toolbox.md](reference/excel-toolbox.md) §10–13.
+**Use the visuals fully**: cell styles and the theme, custom number formats, conditional
+formatting, data bars, sparklines, pictures in cells driven by a selection, shapes with text
+linked to cells, live sketches from charts, linked pictures — catalogue in
+[reference/excel-toolbox.md](reference/excel-toolbox.md) §10–13.
 
-### Řádek po řádku
+### Row by row
 
-Jeden řádek = jedna veličina. Sloupce B–I: `# | Veličina | Symbol = | Hodnota | Jedn. |
-Vztah / podmínka | Zdroj / norma | Mez / stav`. Typy řádků:
+One row = one quantity. Columns B–I: `# | Quantity | Symbol = | Value | Unit |
+Relation / condition | Source / standard | Limit / status`. Row types:
 
-| Typ | Buňka hodnoty | Stav (sl. I) | Povinné |
+| Type | Value cell | Status (col. I) | Required |
 |---|---|---|---|
-| **input** | žlutá, modré písmo, odemčená, ověření dat | ✔ v mezích / ✘ mimo rozsah | min–max nebo seznam |
-| **select** | modrozelená, seznam z `lst_*` | ✔ ze seznamu | číselník v `9x_` |
-| **const** | fialová | — | zdroj (norma, článek) |
-| **calc** | vzorec, černě (zeleně = z jiného listu) | — | vztah zápisem ve sl. G |
-| **check** | η = účinek/odolnost | ✔ / ▲ / ✘ | obě strany + zdroj |
-| **condition** | ANO/NE | ✔ text / ✘ text | text předpokladu |
-| **remark** | dynamický text (`IF` režimu) | — | — |
-| **result** | oranžová, tučný rámeček | — | — |
+| **input** | yellow, blue font, unlocked, data validation | ✔ within limits / ✘ out of range | min–max or list |
+| **select** | teal, list from `lst_*` | ✔ from list | lookup table in `9x_` |
+| **const** | purple | — | source (standard, clause) |
+| **calc** | formula, black (green = from another sheet) | — | relation as written in col. G |
+| **check** | η = effect / resistance | ✔ / ▲ / ✘ | both sides + source |
+| **condition** | YES / NO | ✔ text / ✘ text | text of the assumption |
+| **remark** | dynamic text (`IF` on the regime) | — | — |
+| **result** | orange, bold frame | — | — |
 
-Každá veličina dostane **pojmenovanou oblast** (`in_`, `c_`, `calc_`, `out_`, `chk_`,
-`db_`, `lst_`, `gd_`, `cfg_`, `meta_`) a vzorce pracují se jmény: `=calc_qEd*in_L^2/8`.
-Číslo ve vzorci jen jako součást zapsaného vztahu (ve sl. G) nebo převod jednotek.
-Hotovo, když nemá žádný řádek prázdný symbol, jednotku nebo (u const/check) zdroj.
+Every quantity gets a **named range** (`in_`, `c_`, `calc_`, `out_`, `chk_`, `db_`, `lst_`,
+`gd_`, `cfg_`, `meta_`) and formulas work with names: `=calc_qEd*in_L^2/8`. **Names are
+case-insensitive** — `in_D` and `in_d` are the same name; use `in_D` and `in_dbore`.
+A number in a formula only as part of the written relation (in col. G) or a unit conversion.
+Done when no row has an empty symbol, unit or (for const/check) source.
 
-**Plný arzenál Excelu.** Ke každému kroku vyber nejsilnější funkci, kterou cílová platforma
-umí — dohledání v katalogu, interpolace v tabulce normy, komplexní čísla pro fázory,
-matice pro soustavy, statistika a regrese pro měření, `CONVERT` pro jednotky, `LET`/`LAMBDA`
-pro čitelnost, Power Query a kontingenční tabulky pro data. Ruční náhražka existující funkce
-je nález. Katalog „úkol → funkce → verze“: [reference/excel-toolbox.md](reference/excel-toolbox.md).
-Minimální verze Excelu patří do README.
+**The full Excel arsenal.** For every step pick the strongest function the target platform
+offers — catalogue lookup, interpolation in a standard's table, complex numbers for phasors,
+matrices for systems of equations, statistics and regression for measurements, `CONVERT` for
+units, `LET`/`LAMBDA` for readability, Power Query and pivot tables for data. A hand-made
+substitute for an existing function is a finding. Catalogue "task → function → version":
+[reference/excel-toolbox.md](reference/excel-toolbox.md). The minimum Excel version goes into
+the README.
 
-## 4. Podmínky — aby bylo vidět, že je to v mezích
+## 4. Conditions — make "within limits" visible
 
-Tři vrstvy, všechny povinné ([reference/conditions.md](reference/conditions.md)):
+Three layers, all mandatory ([reference/conditions.md](reference/conditions.md)):
 
-1. **Vstupy**: ověření dat (stop) + stavová buňka, která chytí i vložení přes schránku.
-2. **Posudky a podmínky platnosti**: η, text nerovnosti s čísly (`FIXED`), stav ✔/▲/✘,
-   barva podle stavu, data bar na η v registru.
-3. **Banner** na každém listu: `✔ VŠECHNY POSUDKY VYHOVUJÍ` / `▲ … malá rezerva` /
-   `✘ NEVYHOVUJE – n` + `η max`. Vstup mimo rozsah také přepne banner na ✘.
+1. **Inputs**: data validation (stop) + a status cell that also catches values pasted in.
+2. **Checks and validity conditions**: η, the inequality as text with numbers (`FIXED`),
+   status ✔/▲/✘, colour by status, data bar on η in the register.
+3. **Banner** on every sheet: `✔ ALL CHECKS AND CONDITIONS SATISFIED` / `▲ … low reserve` /
+   `✘ FAILS – n` + `η max`. An input out of range also switches the banner to ✘.
 
-Hotovo, když změna libovolného vstupu za mez přepne banner na ✘ (vyzkoušej).
+Done when changing any input beyond its limit switches the banner to ✘ (try it).
 
-## 5. Grafika
+## 5. Graphics
 
-- **Živá skica**: XY graf z buněk se souřadnicemi počítanými ze vstupů (průřez, příhradovina,
-  rozmístění šroubů, fázorový diagram). Mění se s výběrem — preferuj před obrázkem.
-- **Statická skica / schéma**: obrázek (matplotlib, CAD export) u sekce vstupů.
-- **Průběhy**: XY graf z tabulky bodů v `91_Grafdata` (M(x), charakteristika, ohřev).
-- **Kapacitní obálka**: odolnost jako křivka + účinek jako bod (interakční diagram).
-- **Využití**: pruhový graf η z registru, osa 0–1,2.
-- Rovnice klíčových vztahů jako vykreslený obrázek u sekce (cesta B: `equation()`).
-- **Výkres / řez dílu**: obrys z kót (XY graf), šrafování, osa, kóty s tolerancemi z buněk,
-  rámečky GD&T, rohové razítko — [reference/part-drawing.md](reference/part-drawing.md).
-- **Dashboard widgety**: posuvník a číselník na vstupu, přepínač jednotek, ukazatel hladiny /
-  stupnice, digitální displej, gradientní plošné grafy, vývojový diagram z tvarů —
+- **Live sketch**: XY chart from cells with coordinates computed from the inputs (section,
+  truss, bolt pattern, phasor diagram). Follows the selection — prefer it to a picture.
+- **Static sketch / schematic**: a picture (matplotlib, CAD export) next to the inputs.
+- **Diagrams**: XY chart from a table of points in `91_ChartData` (M(x), characteristic, heating).
+- **Capacity envelope**: resistance as a curve + effect as a point (interaction diagram).
+- **Utilisation**: bar chart of η from the register, axis 0–1.2.
+- Key relations as a rendered equation next to the section (path B: `equation()`).
+- **Part drawing / section**: outline from the dimensions (XY chart), hatching, centre lines,
+  dimensions with tolerances from cells, GD&T frames, title block —
+  [reference/part-drawing.md](reference/part-drawing.md).
+- **Dashboard widgets**: slider and spinner on an input, unit switch, level gauge / scale,
+  digital display, gradient area charts, flowchart from shapes —
   [reference/dashboard-widgets.md](reference/dashboard-widgets.md).
 
-Osy vždy s jednotkou, žádné 3D, barvy série z palety.
+Axes always with units, no 3D, series colours from the palette.
 
-## 6. Ověření (nikdy nepředávej bez něj)
+## 6. Verification (never hand over without it)
 
-1. Nula chybových hodnot (`#DIV/0!`, `#NAME?`, `#REF!`, `#VALUE!`).
-2. Referenční případ ze specifikace sedí (odchylka uvedená v README nebo jako `check`).
-3. Ruční kontrola aspoň jednoho posudku (spočítej nezávisle, uveď uživateli).
-4. Test podmínek: jeden vstup za mez → banner ✘; vrátit.
-5. Cesta B: `python scripts/verify.py soubor.xlsx --render out/` → exit 0, prohlédni PNG.
-   Cesta A: projdi checklist v [reference/excel-in-place.md](reference/excel-in-place.md).
+1. Zero error values (`#DIV/0!`, `#NAME?`, `#REF!`, `#VALUE!`).
+2. The reference case from the specification matches (deviation stated in the README or as a `check`).
+3. Hand check of at least one check (compute it independently, tell the user).
+4. Condition test: one input beyond its limit → banner ✘; revert.
+5. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
+   Path A: go through the checklist in [reference/excel-in-place.md](reference/excel-in-place.md).
 
-Hotovo, když všech 5 bodů prošlo; výsledek ruční kontroly patří do odpovědi.
+Done when all 5 points passed; the result of the hand check goes into your answer.
 
-## Doprovodné soubory
+## Supporting files
 
-- `scripts/engcalc.py` — knihovna (cesta B), `scripts/example_ipe_beam.py` — referenční build
-- `scripts/verify.py` — přepočet LibreOffice, lint, render
-- `reference/vba.md` — makra jen pro desktop Excel (Claude in Excel VBA nespouští)
-- `reference/patterns.md` — katalog vzorů z referenčních sešitů (iterace, FDM mřížka, varianty)
-- `reference/part-drawing.md` — parametrický výkres dílu v Excelu (obrys, kóty, tolerance, GD&T, razítko)
-- `reference/dashboard-widgets.md` — ovládací prvky, ukazatele, tvary, vývojové diagramy
+- `scripts/engcalc.py` — library (path B)
+- `scripts/example_ipe_beam.py` — reference build: IPE beam check (EN 1993-1-1) with a printable report `70_Report`
+- `scripts/example_flange.py` — reference build: flange with ISO 286 fit, ISO 2768, tolerance chain and a live drawing
+- `scripts/verify.py` — LibreOffice recalculation, lint, render
+- `reference/vba.md` — macros for desktop Excel only (Claude in Excel does not run VBA)
+- `reference/patterns.md` — catalogue of patterns from reference workbooks (iteration, FDM grid, variants)
+- `reference/part-drawing.md` — parametric part drawing in Excel (outline, dimensions, tolerances, GD&T, title block)
+- `reference/dashboard-widgets.md` — controls, gauges, shapes, flowcharts
+- `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)

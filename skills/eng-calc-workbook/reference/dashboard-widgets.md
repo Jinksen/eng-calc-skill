@@ -1,69 +1,73 @@
-# Dashboard widgety a tvary
+# Dashboard widgets and shapes
 
-Interaktivní panely na `01_Prehled` nebo vedle vstupů: uživatel posouvá vstup a hned vidí
-ukazatel, graf a stav. Platí pravidla skillu: widget jen **čte nebo zapisuje pojmenovanou
-buňku**, výpočet zůstává ve vzorcích, stav ✔/▲/✘ a banner se nemění.
+Interactive panels on `01_Overview` or next to the inputs: the user moves an input and sees
+the gauge, chart and status immediately. The rules of the skill apply: a widget only **reads
+or writes a named cell**, the calculation stays in formulas, statuses ✔/▲/✘ and the banner do
+not change.
 
-## 1. Panel „Parametry / Výstup“
+## 1. "Parameters / Output" panel
 
-Malé dvoubarevné bloky: záhlaví `Parametry | Jednotky` (NAVY / akcent oboru, bílé písmo),
-řádky `veličina | hodnota | jednotka`, pod tím záhlaví `Výstup` a řádek s výsledkem a jeho
-vzorcem (`FORMULATEXT`) vedle. Vstupní buňka má **rámeček v barvě své pojmenované oblasti**
-(barevně sladěné s tím, jak Excel obarví odkazy při úpravě vzorce) — čtenář spáruje vstup se
-vzorcem. Jména drží konvenci skillu: `in_h1`, `in_h2`, `out_v` (ne `dash_h1_in`).
+Small two-colour blocks: header `Parameters | Units` (NAVY / field accent, white font), rows
+`quantity | value | unit`, below it a header `Output` and a row with the result and its formula
+next to it (`FORMULATEXT`). The input cell has a **frame in the colour of its named range**
+(matching how Excel colours references while editing a formula) — the reader pairs the input
+with the formula. Names keep the skill convention: `in_h1`, `in_h2`, `out_v` (not `dash_h1_in`).
 
-## 2. Ovládací prvky formuláře (desktop Excel)
+## 2. Form controls (desktop Excel)
 
-| Prvek | Použití | Propojení |
+| Control | Use | Link |
 |---|---|---|
-| **posuvník** (Vývojář → Vložit → Posuvník) | citlivost na vstup, plynulé ladění | propojená buňka `ui_h1_raw` (celé číslo 0–1000), vstup `=c_h1_min+ui_h1_raw*krok` |
-| **číselník** | krokování normalizovanou řadou | index do `lst_*` → `INDEX(lst_E12;ui_idx)` |
-| **přepínač** (option button) | volba soustavy jednotek, režimu, varianty | `ui_units` = 1/2 → `cfg_units = CHOOSE(ui_units;"SI";"US")` |
-| **zaškrtávátko** / zaškrtávací políčko v buňce (365) | zapnout/vypnout vliv, předpoklad ANO/NE | `condition` čte PRAVDA/NEPRAVDA |
-| **rozevírací seznam** | výběr z katalogu | raději ověření dat seznamem (funguje všude) |
+| **scroll bar** (Developer → Insert → Scroll Bar) | sensitivity to an input, smooth tuning | linked cell `ui_h1_raw` (integer 0–1000), input `=c_h1_min+ui_h1_raw*step` |
+| **spinner** | stepping through a standard series | index into `lst_*` → `INDEX(lst_E12;ui_idx)` |
+| **option button** | unit system, mode, variant | `ui_units` = 1/2 → `cfg_units = CHOOSE(ui_units;"SI";"US")` |
+| **check box** / check box in a cell (365) | switch an effect on / off, YES/NO assumption | `condition` reads TRUE/FALSE |
+| **combo box** | pick from a catalogue | prefer data validation with a list (works everywhere) |
 
-Pravidla: prvek zapisuje do `ui_*` buňky; skutečný vstup `in_*` z ní počítá a **má ověření
-mezí** jako ostatní vstupy. Ovládací prvky formuláře neumí Claude in Excel, Excel pro web
-ani openpyxl → vždy existuje i obyčejná vstupní buňka a README to uvádí. ActiveX nepoužívat.
+Rules: the control writes into a `ui_*` cell; the real input `in_*` is computed from it and
+**has limit validation** like every other input. Form controls do not work in Claude in Excel,
+Excel for the web or openpyxl → there is always a plain input cell too, and the README says so.
+No ActiveX.
 
-**Přepínač jednotek**: výpočet vždy v SI; zobrazení `=IF(cfg_units="SI";x;CONVERT(x;"m/s";"ft/s"))`
-a jednotka `=IF(cfg_units="SI";"m/s";"ft/s")` (vzor P20).
+**Unit switch**: calculation always in SI; display `=IF(cfg_units="SI";x;CONVERT(x;"m/s";"ft/s"))`
+and unit `=IF(cfg_units="SI";"m/s";"ft/s")` (pattern P20).
 
-## 3. Ukazatele
+## 3. Gauges
 
-| Widget | Stavba |
+| Widget | Build |
 |---|---|
-| **hladina v nádrži / sloupec naplnění** | sloupcový graf 1 bod, osa pevně 0–max, výplň přechodem (*Výplň → Přechod*, světlá→`BLUE`), popisek „h₁ 41 m“ z buňky; druhá hladina (h₂, výtok) jako řada XY s vodorovnou čárou |
-| **digitální displej** | jedna buňka 24–28 pt tučně, tlustý černý rámeček, formát `0.0`; nad ní popisek s jednotkou `V (m/s)`; podmíněné formátování barvy textu podle stavu |
-| **tachometr / půlkruhová stupnice** | prstencový graf: 3 pásma (✔ ▲ ✘ barvy, poslední polovina průhledná) + koláč s úzkou výsečí jako ručička z `chk_eta` |
-| **teploměr / lineární stupnice** | skládaný pruhový graf: hodnota + zbytek do max, čára meze jako XY řada |
-| **semafor** | 3 kruhy (tvary) nebo buňky se symboly ●, barva podmíněným formátováním podle stavu |
-| **KPI dlaždice** | viz visual-language.md → Dashboard |
+| **tank level / fill column** | 1-point column chart, axis fixed 0–max, gradient fill (*Fill → Gradient*, light → `BLUE`), label "h₁ 41 m" from a cell; a second level (h₂, outlet) as an XY series with a horizontal line |
+| **digital display** | one cell 24–28 pt bold, thick black frame, format `0.0`; above it a label with the unit `V (m/s)`; conditional formatting of the font colour by status |
+| **speedometer / half-circle scale** | doughnut chart: 3 bands (✔ ▲ ✘ colours, the last half transparent) + a pie with a narrow slice as the needle from `chk_eta` |
+| **thermometer / linear scale** | stacked bar chart: value + remainder to max, limit line as an XY series |
+| **traffic light** | 3 circles (shapes) or cells with ●, colour by conditional formatting from the status |
+| **KPI tiles** | see visual-language.md → Dashboard |
 
-Hodnoty ukazatelů jsou vždy pojmenované buňky; osa a meze z `cfg_*`, ne pevně v grafu.
+Gauge values are always named cells; axis and limits from `cfg_*`, not fixed in the chart.
 
-## 4. Grafy s výrazným vzhledem
+## 4. Charts with a strong look
 
-- **Plošný graf s přechodem** (např. dva roky měření přes sebe): *Výplň → Přechod*, lineární
-  svisle, průhlednost 20–40 %, starší řada vzadu. Pro technická x–y data ale vždy XY graf;
-  plošný jen pro kategorie (měsíce, zatěžovací stavy).
-- Barvy přechodů odvozuj od palety skillu (`2E75B6`, `7030A0`…), ne od výchozího motivu.
-- Pozadí plochy jemně (`DEEBF7`), bez 3D, osy s jednotkou.
+- **Area chart with a gradient** (e.g. two years of measurements on top of each other):
+  *Fill → Gradient*, linear vertical, transparency 20–40 %, the older series behind. For
+  technical x–y data always an XY chart; area charts only for categories (months, load cases).
+- Derive gradient colours from the skill palette (`2E75B6`, `7030A0`…), not the default theme.
+- Light plot background (`DEEBF7`), no 3D, axes with units.
 
-## 5. Tvary a vývojové diagramy (Vložit → Tvary)
+## 5. Shapes and flowcharts (Insert → Shapes)
 
-| Účel | Jak |
+| Purpose | How |
 |---|---|
-| **vývojový diagram postupu výpočtu** na README | ovál = start/konec, obdélník = krok (odkaz na list), kosočtverec = rozhodnutí (`condition`), šipky = spojnice (*Čáry → Spojnice*, přichytí se k bodům tvaru) |
-| idealizované schéma (nosník, podpory, síly) | tvary + šipky, seskupit; text šipky `=calc_F` |
-| text propojený s buňkou | vyber tvar → řádek vzorců `=out_v` (jen jedna buňka, ne vzorec) |
-| přepínání viditelnosti | nejde vzorcem → dva tvary + podmíněně formátovaná buňka pod nimi, nebo makro (vba.md) |
-| zarovnání | *Formát tvaru → Zarovnat / Rozmístit*, mřížka přichycení, skupiny zamknout ochranou listu |
+| **flowchart of the calculation procedure** on the README | oval = start / end, rectangle = step (link to the sheet), diamond = decision (`condition`), arrows = connectors (*Lines → Connector*, snap to the shape's points) |
+| idealised schematic (beam, supports, forces) | shapes + arrows, grouped; arrow text `=calc_F` |
+| text linked to a cell | select the shape → formula bar `=out_v` (a single cell, not a formula) |
+| switching visibility | not possible with formulas → two shapes + a conditionally formatted cell below them, or a macro (vba.md) |
+| alignment | *Shape Format → Align / Distribute*, snap to grid, lock groups with sheet protection |
 
-Cesta B: openpyxl tvary ani ovládací prvky **nevytváří a při uložení existující zahodí** —
-neotvírej přes openpyxl sešit, který tvary má. Schéma pak jako PNG (matplotlib), diagram
-postupu jako tabulka kroků s hypertextovými odkazy; tvary doplň cestou A nebo makrem.
+Path B: openpyxl **does not create shapes or form controls and drops existing ones when it
+saves** — never open a workbook with shapes through openpyxl. Draw schematics as XY charts
+(`drawing_chart`) or PNG (matplotlib), the procedure as a table of steps with hyperlinks; add
+shapes in path A or with a macro.
 
-## 6. Copyright a značky
+## 6. Copyright and branding
 
-Převzatý vzhled z cizí šablony (logo, © text, vodoznak) do sešitu nepatří; použij `meta_org`.
+A look copied from someone else's template (logo, © text, watermark) does not belong in the
+workbook; use `meta_org`.
