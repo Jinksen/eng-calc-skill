@@ -15,7 +15,7 @@ s legendou, živé skici z grafů a ověření.
 ## Struktura
 
 ```
-.claude-plugin/plugin.json
+.claude-plugin/plugin.json, marketplace.json
 skills/eng-calc-workbook/
   SKILL.md                    postup (specifikace → kostra → calc pad → podmínky → grafika → ověření)
   agents/openai.yaml
@@ -45,8 +45,13 @@ skills/eng-calc-workbook/
 
 - **claude.ai / Claude in Excel**: zabal složku `skills/eng-calc-workbook` do ZIP a nahraj v
   Nastavení → Schopnosti → Skills; zapni ho. Claude in Excel aplikuje zapnuté skills automaticky.
-- **Claude Code**: `/plugin marketplace add Jinksen/eng-calc-workbook` a nainstaluj,
-  nebo zkopíruj složku skillu do `~/.claude/skills/`.
+- **Claude Code** (repozitář je soukromý — `git` musí mít přístup k GitHubu, např. `gh auth login`):
+  ```
+  /plugin install eng-calc-workbook --marketplace Jinksen/eng-calc-workbook
+  ```
+  ve starších verzích Claude Code nejdřív `/plugin marketplace add Jinksen/eng-calc-workbook`,
+  pak `/plugin install eng-calc-workbook@eng-calc-workbook`. Případně zkopíruj složku skillu
+  do `~/.claude/skills/`.
 
 ## Referenční build
 

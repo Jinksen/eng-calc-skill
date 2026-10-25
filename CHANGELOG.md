@@ -7,7 +7,7 @@
 - `reference/dashboard-widgets.md`: panely Parametry/Výstup, posuvníky, číselníky, přepínače, ukazatel hladiny, digitální displej, stupnice, gradientní grafy, vývojové diagramy z tvarů; omezení openpyxl na tvary.
 - `excel-toolbox.md` §0: základní sada inženýra (dohledání, logika, statistika, kusovník přes `SUMIFS`, `RANK.EQ`/`PERCENTILE`, `CONVERT`, Bessel, komplexní čísla, bity, `ERF`, Řešitel).
 - `patterns.md` P21–P26, `domains.md`: tolerance a uložení, díl z výkresu.
-- Repozitář: jediná kopie skillu v `skills/eng-calc-workbook/`.
+- Repozitář: jediná kopie skillu v `skills/eng-calc-workbook/`; `.claude-plugin/marketplace.json` pro instalaci přes `/plugin`.
 
 ## 0.1.0 — 2026-10-25
 
