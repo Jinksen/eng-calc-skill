@@ -1,6 +1,6 @@
 <div align="center">
 
-# eng-calc-workbook
+# ENG-CALC
 
 **An agent skill that builds engineering calculation workbooks in Excel —<br>checks you can trust, and part drawings that redraw themselves.**
 
