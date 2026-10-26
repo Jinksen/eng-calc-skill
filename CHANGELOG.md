@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.5.0 — 2026-10-26
 
 - **Calculation specification**: `reference/specification.md` — what to ask before building, for
   every field: requirements with their origin and coverage check (`req_status`), normative basis
@@ -12,6 +12,8 @@
 - `SKILL.md` §1: specification table extended with these items, asked in groups; §6: new
   traceability step.
 - `CalcSheet.condition(…, warn=…)`: an unmet condition gives ▲ instead of ✘.
+- README: section "It asks before it builds", correct Claude Code install commands, release
+  badge and ZIP download, `--screen` build.
 
 ## 0.4.0 — 2026-10-26
 

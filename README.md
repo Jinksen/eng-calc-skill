@@ -8,7 +8,7 @@ An open skill for Claude that turns plain requests into **verified, traceable, g
 engineering spreadsheets — with live drawings, automatic pass / fail checks and a printable report.
 
 [![verify](https://github.com/Jinksen/eng-calc-workbook/actions/workflows/verify.yml/badge.svg)](https://github.com/Jinksen/eng-calc-workbook/actions/workflows/verify.yml)
-![version](https://img.shields.io/badge/version-0.3.0-2E75B6)
+[![version](https://img.shields.io/github/v/release/Jinksen/eng-calc-workbook?label=version&color=2E75B6)](https://github.com/Jinksen/eng-calc-workbook/releases/latest)
 ![license](https://img.shields.io/badge/license-MIT-548235)
 ![Excel](https://img.shields.io/badge/Excel-365%20%7C%202021%20%7C%202016-1F3864)
 ![LibreOffice](https://img.shields.io/badge/LibreOffice-supported-7030A0)
@@ -68,8 +68,8 @@ automatically — before anyone relies on the result.
 <td valign="top">
 
 ### 🧭 Fully traceable
-Named quantities instead of cell addresses, sources for every constant, a README sheet with
-scope, assumptions and revision history.
+Every check tied to a requirement, every standard with its edition and national annex, named
+quantities instead of cell addresses, assumptions that keep the banner amber until confirmed.
 
 </td>
 <td valign="top">
@@ -106,12 +106,14 @@ files open in **LibreOffice** too.
 
 **1. Install**
 
-- **claude.ai / Claude in Excel** — zip the folder [`skills/eng-calc-workbook`](skills/eng-calc-workbook)
-  (or grab the ZIP from [Releases](https://github.com/Jinksen/eng-calc-workbook/releases)) and upload it in
-  *Settings → Capabilities → Skills*.
+- **claude.ai / Claude in Excel** — download `eng-calc-workbook.zip` from the
+  [latest release](https://github.com/Jinksen/eng-calc-workbook/releases/latest) and upload it in
+  *Settings → Capabilities → Skills*. The release also has ready-built sample workbooks to open
+  right away.
 - **Claude Code**
   ```
-  /plugin install eng-calc-workbook --marketplace Jinksen/eng-calc-workbook
+  /plugin marketplace add Jinksen/eng-calc-workbook
+  /plugin install eng-calc-workbook@eng-calc-workbook
   ```
 
 **2. Ask**
@@ -122,8 +124,27 @@ files open in **LibreOffice** too.
 > *Make a test report for these measurements with a pass / fail summary.*
 > *Review this workbook and tell me what is wrong with it.*
 
-**3. Get a workbook** — Claude first agrees the inputs and checks with you, then builds the
+**3. Get a workbook** — Claude first agrees the specification with you, then builds the
 file, verifies it and tells you how it double-checked the result.
+
+## It asks before it builds
+
+A spreadsheet can be internally consistent and still wrong. Before the first cell, Claude
+agrees the things an engineer would ask a colleague, in a few grouped questions with
+sensible defaults:
+
+| | Asked | Shows up in the workbook as |
+|---|---|---|
+| 🎯 | **Requirements** and who sets them (standard, contract, client spec) | an ID on every check; a requirement without a check turns the banner red |
+| 📚 | **Standards** with edition, national annex and options chosen | a normative basis table; national parameters as sourced constants |
+| 🛡️ | **Safety concept** — partial factors, safety factor, derating or acceptance criterion | each factor applied once, visible in the formula |
+| 🔀 | **Cases** — load cases, operating states, scenarios | one column per case, the worst case found by formula |
+| 🧭 | **Conventions** — axes, positive directions, reference system | a conventions section and axis arrows on the sketch |
+| ❓ | **How sure each input is** — confirmed, measured, assumed | an assumption register; amber banner and *PRELIMINARY* until confirmed |
+| 📏 | **Tolerances and measurements** | unfavourable bounds as extra cases; pass / fail with measurement uncertainty |
+
+Whatever you cannot answer yet is recorded as an assumption to confirm, never quietly
+guessed. Details in [`specification.md`](skills/eng-calc-workbook/reference/specification.md).
 
 ## Built for
 
@@ -140,7 +161,7 @@ file, verifies it and tells you how it double-checked the result.
 
 ```mermaid
 flowchart LR
-    A[Your request] --> B[Spec agreed<br/>inputs · checks · sources]
+    A[Your request] --> B[Spec agreed<br/>requirements · standards · cases]
     B --> C[Workbook built<br/>calc · drawings · report]
     C --> D[Verified<br/>recalc · lint · render]
     D --> E[✔ / ✘ banner<br/>you can trust]
@@ -159,6 +180,7 @@ from every user, looks and behaves the same.
 pip install openpyxl pillow matplotlib          # + LibreOffice and poppler-utils for verify
 python skills/eng-calc-workbook/scripts/example_flange.py out/example_flange.xlsx
 python skills/eng-calc-workbook/scripts/example_ipe_beam.py out/example_ipe_beam.xlsx
+python skills/eng-calc-workbook/scripts/example_ipe_beam.py out/beam_calculator.xlsx --screen
 python skills/eng-calc-workbook/scripts/verify.py out/example_flange.xlsx --render out/render
 ```
 
@@ -200,7 +222,7 @@ Full API in [`python-engcalc.md`](skills/eng-calc-workbook/reference/python-engc
 | Build | Shows |
 |---|---|
 | [`example_flange.py`](skills/eng-calc-workbook/scripts/example_flange.py) | part with fits and tolerances, live drawing, GD&T, title block |
-| [`example_ipe_beam.py`](skills/eng-calc-workbook/scripts/example_ipe_beam.py) | structural check, live sketch, diagrams, printable report |
+| [`example_ipe_beam.py`](skills/eng-calc-workbook/scripts/example_ipe_beam.py) | structural check, live sketch, diagrams, printable report; `--screen` builds the one-screen calculator |
 
 Both build and pass `verify.py` with zero errors and zero warnings in CI.
 
@@ -228,7 +250,7 @@ docs/images/                   screenshots
 - 📦 One-click releases with ready-to-upload ZIPs
 
 Each item is a small ticket in [`.scratch/eng-calc-workbook/issues`](.scratch/eng-calc-workbook/issues) —
-pick one up.
+pick one up. What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
 ## Get involved
 
