@@ -7,8 +7,8 @@
 An open skill for Claude that turns plain requests into **verified, traceable, good-looking**
 engineering spreadsheets — with live drawings, automatic pass / fail checks and a printable report.
 
-[![verify](https://github.com/Jinksen/eng-calc-workbook/actions/workflows/verify.yml/badge.svg)](https://github.com/Jinksen/eng-calc-workbook/actions/workflows/verify.yml)
-[![version](https://img.shields.io/github/v/release/Jinksen/eng-calc-workbook?label=version&color=2E75B6)](https://github.com/Jinksen/eng-calc-workbook/releases/latest)
+[![verify](https://github.com/Jinksen/eng-calc-skill/actions/workflows/verify.yml/badge.svg)](https://github.com/Jinksen/eng-calc-skill/actions/workflows/verify.yml)
+[![version](https://img.shields.io/github/v/release/Jinksen/eng-calc-skill?label=version&color=2E75B6)](https://github.com/Jinksen/eng-calc-skill/releases/latest)
 ![license](https://img.shields.io/badge/license-MIT-548235)
 ![Excel](https://img.shields.io/badge/Excel-365%20%7C%202021%20%7C%202016-1F3864)
 ![LibreOffice](https://img.shields.io/badge/LibreOffice-supported-7030A0)
@@ -107,12 +107,12 @@ files open in **LibreOffice** too.
 **1. Install**
 
 - **claude.ai / Claude in Excel** — download `eng-calc-workbook.zip` from the
-  [latest release](https://github.com/Jinksen/eng-calc-workbook/releases/latest) and upload it in
+  [latest release](https://github.com/Jinksen/eng-calc-skill/releases/latest) and upload it in
   *Settings → Capabilities → Skills*. The release also has ready-built sample workbooks to open
   right away.
 - **Claude Code**
   ```
-  /plugin marketplace add Jinksen/eng-calc-workbook
+  /plugin marketplace add Jinksen/eng-calc-skill
   /plugin install eng-calc-workbook@eng-calc-workbook
   ```
 
