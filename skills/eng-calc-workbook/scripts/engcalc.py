@@ -41,7 +41,7 @@ from openpyxl.worksheet.worksheet import Worksheet
 Scalar = Union[int, float, str, dt.date, None]
 Domain = Literal["electrical", "mechanical", "civil", "general"]
 CheckKind = Literal["le", "ge"]
-Place = Literal["left", "right", "full"]
+Place = Literal["left", "mid", "right", "wide", "full"]
 
 # --------------------------------------------------------------------------- #
 # Visual language (single source of truth — reference/visual-language.md)
@@ -363,7 +363,7 @@ class EngWorkbook:
         self.names: dict[str, str] = {}  # name -> sheet title
         self.checks: list[CheckRecord] = []
         self.check_keys: dict[str, CheckRecord] = {}  # check / condition name -> record (report steps)
-        self.input_spans: dict[str, tuple[int, int]] = {}
+        self.input_spans: list[tuple[str, int, int, str]] = []  # sheet, first, last row, status column
         self.sheet_purpose: dict[str, str] = {}
         self._util_chart_requests: list[tuple[Worksheet, str, float, float]] = []
         self._readme = self.wb.active
@@ -411,6 +411,9 @@ class EngWorkbook:
 
     def report_sheet(self, name: str, title: str, purpose: str, *, subtitle: str = "") -> "ReportSheet":
         return ReportSheet(self, self._new_ws(name, TAB["report"], purpose), title, subtitle)
+
+    def screen_sheet(self, name: str, title: str, purpose: str) -> "ScreenSheet":
+        return ScreenSheet(self, self._new_ws(name, TAB["calc"], purpose), title)
 
     # -- README ------------------------------------------------------------ #
     _META_ROWS = (
@@ -568,10 +571,11 @@ class EngWorkbook:
             q = quote_sheetname(rec.sheet)
             eta = f"=IF(ISNUMBER({q}!$E${rec.row}),{q}!$E${rec.row},\"{NA}\")" if rec.numeric else f'="{NA}"'
             rows.append((rec.label, rec.symbol, eta, f"={q}!$I${rec.row}", rec.sheet + "|" + str(rec.row)))
-        for sheet, (a, b) in self.input_spans.items():
+        for sheet, a, b, col in self.input_spans:
             q = quote_sheetname(sheet)
-            status = (f'=IF(COUNTIF({q}!$I${a}:$I${b},"{FAIL}*")=0,"{OK} all inputs within limits",'
-                      f'"{FAIL} inputs out of range: "&COUNTIF({q}!$I${a}:$I${b},"{FAIL}*"))')
+            rng = f"{q}!${col}${a}:${col}${b}"
+            status = (f'=IF(COUNTIF({rng},"{FAIL}*")=0,"{OK} all inputs within limits",'
+                      f'"{FAIL} inputs out of range: "&COUNTIF({rng},"{FAIL}*"))')
             rows.append((f"Inputs of sheet {sheet} within allowed limits", "", f'="{NA}"', status, f"{sheet}|{a}"))
         for i, (label, sym, eta, status, link) in enumerate(rows, 1):
             sheet, row = link.split("|")
@@ -726,6 +730,30 @@ def _scaffold(book: EngWorkbook, ws: Worksheet, title: str, *, columns: bool = T
         ws.freeze_panes = ws.cell(HEADER_ROWS + 1, 1)
 
 
+def _bounded(book: EngWorkbook, key: str, name: str, unit: str, *, lo: float | None, hi: float | None,
+             choices: str | None, ref: str, short: bool = False) -> tuple[DataValidation, str, str]:
+    """Data validation, status formula (✔ / ✘) and range hint for a manual input cell `ref`."""
+    if choices:
+        if choices not in book.names:
+            raise KeyError(f"list name {choices!r} not defined yet (DataSheet.table first)")
+        dv = DataValidation(type="list", formula1=f"={choices}", allow_blank=False, showErrorMessage=True,
+                            errorTitle="Invalid choice", error="Pick a value from the list",
+                            promptTitle=name[:30], prompt="Pick from the list", showInputMessage=True)
+        ok, bad = ("", "") if short else (" from list", " not in list")
+        return dv, f'=IF(ISNUMBER(MATCH({ref},{choices},0)),"{OK}{ok}","{FAIL}{bad}")', "pick from list"
+    if lo is None or hi is None:
+        raise ValueError(f"input {key!r} needs lo/hi or choices — every input must be bounded")
+    if lo > hi:
+        raise ValueError(f"{key}: lo > hi")
+    dv = DataValidation(type="decimal", operator="between", formula1=repr(float(lo)), formula2=repr(float(hi)),
+                        showErrorMessage=True, errorTitle="Outside scope of validity",
+                        error=f"{name}: allowed {lo:g} … {hi:g} {unit}",
+                        promptTitle=name[:32], prompt=f"{lo:g} … {hi:g} {unit}", showInputMessage=True)
+    ok, bad = ("", "") if short else (" within limits", " out of range")
+    return (dv, f'=IF(AND(ISNUMBER({ref}),{ref}>={lo!r},{ref}<={hi!r}),"{OK}{ok}","{FAIL}{bad}")',
+            f"⟨{lo:g} ; {hi:g}⟩ {unit}")
+
+
 def _banner_formula(short: bool = False) -> str:
     """Overall status from the register totals; `short` for the narrow report status panel."""
     fail, warn, ok, sep = (("FAILS: ", "LOW RESERVE: ", "OK", "   ") if short else
@@ -818,27 +846,8 @@ class CalcSheet:
         cell = self._cell("val", value, "ec_select" if choices else "ec_input")
         cell.number_format = fmt if not choices else "@"
         ref = f"${get_column_letter(COL['val'])}{self.r}"
-        if choices:
-            if choices not in self.book.names:
-                raise KeyError(f"list name {choices!r} not defined yet (DataSheet.table first)")
-            dv = DataValidation(type="list", formula1=f"={choices}", allow_blank=False, showErrorMessage=True,
-                                errorTitle="Invalid choice", error="Pick a value from the list",
-                                promptTitle=symbol or label[:30], prompt="Pick from the list", showInputMessage=True)
-            self._cell("text", "pick from list", "ec_comment")
-            status = f'=IF(ISNUMBER(MATCH({ref},{choices},0)),"{OK} from list","{FAIL} not in list")'
-        elif lo is not None and hi is not None:
-            if lo > hi:
-                raise ValueError(f"{key}: lo > hi")
-            dv = DataValidation(type="decimal", operator="between", formula1=repr(float(lo)), formula2=repr(float(hi)),
-                                showErrorMessage=True, errorTitle="Outside scope of validity",
-                                error=f"{symbol or label}: allowed {lo:g} … {hi:g} {unit}",
-                                promptTitle=(symbol or label)[:32], prompt=f"{lo:g} … {hi:g} {unit}",
-                                showInputMessage=True)
-            self._cell("text", f"⟨{lo:g} ; {hi:g}⟩ {unit}", "ec_comment")
-            status = (f'=IF(AND(ISNUMBER({ref}),{ref}>={lo!r},{ref}<={hi!r}),'
-                      f'"{OK} within limits","{FAIL} out of range")')
-        else:
-            raise ValueError(f"input {key!r} needs lo/hi or choices — every input must be bounded")
+        dv, status, hint = _bounded(self.book, key, symbol or label, unit, lo=lo, hi=hi, choices=choices, ref=ref)
+        self._cell("text", hint, "ec_comment")
         self.ws.add_data_validation(dv)
         dv.add(cell.coordinate)
         self._cell("stat", status, "ec_status")
@@ -977,7 +986,7 @@ class CalcSheet:
                         fill=_fill(C.FAIL_FILL), font=Font(color=C.FAIL_FONT, bold=True)),
         )
         if self._in_first is not None and self._in_last is not None:
-            self.book.input_spans[self.ws.title] = (self._in_first, self._in_last)
+            self.book.input_spans.append((self.ws.title, self._in_first, self._in_last, stat))
         _page_setup(self.ws, f"A1:{get_column_letter(COL['margin_r'])}{last}", title_rows=f"1:{HEADER_ROWS}")
 
 
@@ -1190,9 +1199,6 @@ class DrawingSheet(Dashboard):
 # Report sheet (style R — printable calculation report / data sheet)
 # --------------------------------------------------------------------------- #
 
-REPORT_COLS = 12  # content columns B..M of the report grid
-REPORT_W = 8.0  # width of one report column (characters, ≈ 61 px)
-_REPORT_PX = 61
 _SUBST_RE = re.compile(r"\{([^{}:]+)(?::(\d+))?\}")
 
 
@@ -1230,27 +1236,33 @@ class ReportSheet:
     relations with substituted values, tables and signatures, never logic.
     """
 
+    NCOLS, COL_W, COL_PX = 12, 8.0, 61  # content columns B..M, width in characters / pixels
     SPANS: dict[str, tuple[int, int]] = {"left": (2, 7), "right": (8, 13), "full": (2, 13)}
+    ZONES: dict[str, tuple[str, ...]] = {"left": ("left",), "right": ("right",), "full": ("left", "right")}
 
     def __init__(self, book: EngWorkbook, ws: Worksheet, title: str, subtitle: str = "") -> None:
         self.book, self.ws, self.title = book, ws, title
         self._sec = 0
         self._item = 0
+        self._next = {z: 4 for z in self.ZONES["full"]}
         ws.sheet_view.showGridLines = False
         ws.column_dimensions["A"].width = 1.5
-        ws.column_dimensions[get_column_letter(REPORT_COLS + 2)].width = 1.5
-        for c in range(2, REPORT_COLS + 2):
-            ws.column_dimensions[get_column_letter(c)].width = REPORT_W
+        ws.column_dimensions[get_column_letter(self.NCOLS + 2)].width = 1.5
+        for c in range(2, self.NCOLS + 2):
+            ws.column_dimensions[get_column_letter(c)].width = self.COL_W
+        self._header(title, subtitle)
+
+    def _header(self, title: str, subtitle: str) -> None:
+        ws, book = self.ws, self.book
         ws.cell(1, 2, title.upper()).style = "ec_rep_title"
-        org = ws.cell(1, REPORT_COLS + 1, '=meta_org&""')
+        org = ws.cell(1, self.NCOLS + 1, '=meta_org&""')
         org.font = _font(DOMAIN_ACCENT[book.meta.domain], size=11, bold=True)
         org.alignment = Alignment(horizontal="right", vertical="center")
         ws.row_dimensions[1].height = 30
-        for c in range(2, REPORT_COLS + 2):
+        for c in range(2, self.NCOLS + 2):
             ws.cell(2, c).style = "ec_rep_band"
         ws.cell(2, 2, subtitle or '=meta_subject&""')
         ws.row_dimensions[2].height = 20
-        self._next = {"left": 4, "right": 4}
         self.fields([("Project", '=meta_project&""', "", "@"), ("Calculation", '=meta_title&""', "", "@"),
                      ("Standard / method", '=meta_std&""', "", "@")], at="left", label_cols=2)
         iso = 'YEAR(meta_date)&"-"&RIGHT("0"&MONTH(meta_date),2)&"-"&RIGHT("0"&DAY(meta_date),2)'
@@ -1261,13 +1273,11 @@ class ReportSheet:
     # -- flow --------------------------------------------------------------- #
     def _at(self, at: Place) -> tuple[int, int, int]:
         c0, c1 = self.SPANS[at]
-        return (max(self._next.values()) if at == "full" else self._next[at]), c0, c1
+        return max(self._next[z] for z in self.ZONES[at]), c0, c1
 
     def _done(self, at: Place, row: int, gap: int = 1) -> None:
-        if at == "full":
-            self._next = {"left": row + gap, "right": row + gap}
-        else:
-            self._next[at] = row + gap
+        for z in self.ZONES[at]:
+            self._next[z] = row + gap
 
     def _image(self, data: bytes, row: int, col: int, width_px: int | None) -> int:
         """Place a PNG at (row, col); returns the number of rows it covers."""
@@ -1498,7 +1508,7 @@ class ReportSheet:
         first, last = self.table([Col("n", "#", "0"), Col("label", "Check / condition", "@"), Col("sym", "Symbol", "@"),
                                   Col("rel", "Effect vs resistance", "@"), Col("eta", "η [–]", "0.00"),
                                   Col("st", "Status", "@")], rows, spans=(1, 4, 1, 3, 1, 2), title=title)
-        a, b = get_column_letter(12), get_column_letter(13)
+        a, b = get_column_letter(self.NCOLS), get_column_letter(self.NCOLS + 1)
         _status_rules(self.ws, f"{a}{first}:{b}{last}", f"${a}{first}")
         return first, last
 
@@ -1511,7 +1521,7 @@ class ReportSheet:
         """Small static sketch / drawing (PNG), scaled to the block width unless width_px is given."""
         data = png if isinstance(png, bytes) else Path(png).read_bytes()
         r, c0, c1 = self._at(at)
-        r += self._image(data, r, c0, width_px or (c1 - c0 + 1) * _REPORT_PX - 8)
+        r += self._image(data, r, c0, width_px or (c1 - c0 + 1) * self.COL_PX - 8)
         if caption:
             self.ws.cell(r, c0, caption).style = "ec_comment"
             r += 1
@@ -1530,7 +1540,7 @@ class ReportSheet:
             self.ws.cell(r, c).style = "ec_h2"
         self.ws.cell(r, c0, title)
         r += 1
-        width = int((c1 - c0) * REPORT_W * 1.25)
+        width = int((c1 - c0) * self.COL_W * 1.25)
         for k, item in enumerate(items):
             letter = self.ws.cell(r, c0, f"{chr(ord('a') + k)})")
             letter.font = _font("C00000", size=9, bold=True)
@@ -1558,7 +1568,97 @@ class ReportSheet:
     def close(self) -> None:
         """Call after the last block: print area, A4 portrait, header rows repeated on every page."""
         last = max(self._next.values())
-        _page_setup(self.ws, f"A1:{get_column_letter(REPORT_COLS + 2)}{last}", title_rows="1:2")
+        _page_setup(self.ws, f"A1:{get_column_letter(self.NCOLS + 2)}{last}", title_rows="1:2")
+
+
+class ScreenSheet(ReportSheet):
+    """One-screen calculator (layout S): inputs, sketch, diagrams, status and checks on one page.
+
+    Three zones on an 18-column landscape grid — `left` B–G (inputs), `mid` H–M (sketch,
+    charts), `right` N–S (key results, checks) — plus `wide` (H–S) and `full`. The inputs live
+    here (yellow, validated, ✔ / ✘ next to each) and the status banner is row 2, so a wrong
+    value shows its consequence on the same screen. The logic stays on a calc pad that reads
+    the in_* names; this sheet shows results by reference.
+    """
+
+    NCOLS, COL_W, COL_PX = 18, 7.0, 50
+    SPANS = {"left": (2, 7), "mid": (8, 13), "right": (14, 19), "wide": (8, 19), "full": (2, 19)}
+    ZONES = {"left": ("left",), "mid": ("mid",), "right": ("right",), "wide": ("mid", "right"),
+             "full": ("left", "mid", "right")}
+
+    def _header(self, title: str, subtitle: str) -> None:
+        ws = self.ws
+        self._inputs: dict[str, list[int]] = {}  # status column -> input rows
+        ws.cell(1, 2, title.upper()).style = "ec_rep_title"
+        ident = ws.cell(1, 8, subtitle or '=meta_project&" · "&meta_title&" · rev. "&meta_rev&" · "&meta_author')
+        ident.style = "ec_comment"
+        org = ws.cell(1, self.NCOLS + 1, '=meta_org&""')
+        org.font = _font(DOMAIN_ACCENT[self.book.meta.domain], size=11, bold=True)
+        org.alignment = Alignment(horizontal="right", vertical="center")
+        ws.row_dimensions[1].height = 30
+        for c in range(2, self.NCOLS + 2):
+            ws.cell(2, c).style = "ec_banner"
+        ws.cell(2, 2, _banner_formula())
+        _status_rules(ws, f"B2:{get_column_letter(self.NCOLS + 1)}2", "$B$2")
+        ws.row_dimensions[2].height = 24
+        ws.freeze_panes = "A3"
+
+    def input(self, key: str, label: str, value: Scalar, unit: str, *, lo: float | None = None,
+              hi: float | None = None, choices: str | None = None, fmt: str = "0.00", at: Place = "left") -> Cell:
+        """Compact input row: label (with symbol) | yellow value | unit | ✔ / ✘. Bounded like CalcSheet.input."""
+        r, c0, c1 = self._at(at)
+        ws = self.ws
+        for c in range(c0, c1 + 1):
+            ws.cell(r, c).style = "ec_rep_label"
+        ws.cell(r, c0, label)
+        cell = ws.cell(r, c0 + 3, value)
+        cell.style = "ec_select" if choices else "ec_input"
+        cell.number_format = "@" if choices else fmt
+        ref = f"${get_column_letter(c0 + 3)}{r}"
+        dv, status, _ = _bounded(self.book, key, label, unit, lo=lo, hi=hi, choices=choices, ref=ref, short=True)
+        ws.add_data_validation(dv)
+        dv.add(cell.coordinate)
+        ws.cell(r, c0 + 4, unit).style = "ec_unit"
+        ws.cell(r, c1, status).style = "ec_status"
+        stat = get_column_letter(c1)
+        _status_rules(ws, f"{stat}{r}", f"${stat}{r}")
+        ws.conditional_formatting.add(cell.coordinate, FormulaRule(
+            formula=[f'LEFT(${stat}{r},1)="{FAIL}"'], fill=_fill(C.FAIL_FILL), font=Font(color=C.FAIL_FONT, bold=True)))
+        self.book.define(key, ws, cell.coordinate)
+        self._inputs.setdefault(stat, []).append(r)
+        self._done(at, r + 1, gap=0)
+        return cell
+
+    def checks(self, *, at: Place = "right", title: str = "Checks") -> tuple[int, int]:  # type: ignore[override]
+        """Compact check list: label | η with a data bar | ✔ / ▲ / ✘ (read from the calc sheets)."""
+        if title:
+            self.section(title, at=at)
+        r, c0, c1 = self._at(at)
+        first = r
+        ws = self.ws
+        for rec in self.book.checks:
+            q = quote_sheetname(rec.sheet)
+            for c in range(c0, c1 + 1):
+                ws.cell(r, c).style = "ec_rep_td"
+            ws.cell(r, c0, rec.label).alignment = Alignment(horizontal="left", vertical="center")
+            ws.cell(r, c1 - 1, f"={q}!$E${rec.row}" if rec.numeric else f'="{NA}"').number_format = "0.00"
+            ws.cell(r, c1, f"=LEFT({q}!$I${rec.row},1)").style = "ec_status"
+            r += 1
+        last = max(r - 1, first)
+        e, st = get_column_letter(c1 - 1), get_column_letter(c1)
+        _status_rules(ws, f"{st}{first}:{st}{last}", f"${st}{first}")
+        ws.conditional_formatting.add(f"{e}{first}:{e}{last}", DataBarRule(
+            start_type="num", start_value=0, end_type="num", end_value=1.2, color=C.BLUE, showValue=True))
+        self._done(at, r)
+        return first, last
+
+    def close(self) -> None:
+        """Landscape, the whole calculator on one printed page; registers the input status cells."""
+        for col, rows in self._inputs.items():
+            self.book.input_spans.append((self.ws.title, min(rows), max(rows), col))
+        last = max(self._next.values())
+        _page_setup(self.ws, f"A1:{get_column_letter(self.NCOLS + 2)}{last}", title_rows=None, landscape=True)
+        self.ws.page_setup.fitToHeight = 1
 
 
 # --------------------------------------------------------------------------- #
@@ -1717,6 +1817,6 @@ def png_from_figure(fig: object, *, dpi: int = 150) -> bytes:
 
 __all__ = [
     "C", "Col", "Meta", "EngWorkbook", "CalcSheet", "DataSheet", "Dashboard", "DrawingSheet", "Block",
-    "ReportSheet", "DrawSeries", "fx", "let", "index_match", "interval_lookup", "tol_text", "subst", "xy_chart",
+    "ReportSheet", "ScreenSheet", "DrawSeries", "fx", "let", "index_match", "interval_lookup", "tol_text", "subst", "xy_chart",
     "sketch_chart", "drawing_chart", "png_from_figure",
 ]

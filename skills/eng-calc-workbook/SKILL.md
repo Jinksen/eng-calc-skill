@@ -90,9 +90,16 @@ Write down this table and have the user confirm it — nothing is built without 
 | Validity conditions | assumptions of the method (regime, range, class) → `condition` rows |
 | Reference case | a known result (worked example from a standard / textbook, hand calculation) |
 | Target platform | Excel 365 / 2021 / 2016 / LibreOffice — decides which functions you may use |
+| **Layout** | **the user chooses** — S one-screen calculator · M mosaic of pages · K compact check sheet · V variants in columns · P calc pad · R printable report ([reference/layouts.md](reference/layouts.md)) |
 
 Do not make up a missing parameter — ask, or mark it as an assumption in the README.
-Done when every check has both sides of the inequality and a source, and every input a range.
+Done when every check has both sides of the inequality and a source, every input a range,
+and the user picked a layout.
+
+**Layout is the user's choice, not yours.** Show the table and the previews from
+[reference/layouts.md](reference/layouts.md) (`AskUserQuestion` with previews when you have it),
+recommend one (default **S + P**, + **R** for a report) and build what they pick. Dense layouts
+(S, M, K) show inputs, sketch and checks on one screen, so a wrong value is noticed at once.
 
 For the field, see [reference/domains.md](reference/domains.md) (typical checks and limits
 for electrical / mechanical / civil).
@@ -103,6 +110,7 @@ for electrical / mechanical / civil).
 |---|---|
 | `00_README` | identification (named `meta_*`), purpose, scope of validity, assumptions, workflow, legend, contents with links, sources, revision log |
 | `01_Overview` | dashboard: banner, KPI tiles, live sketch / drawing, diagrams, utilisation chart — **references only** |
+| `02_Calculator` | **one-screen calculator** (layout S): the inputs + everything that reacts to them — [reference/layouts.md](reference/layouts.md) |
 | `1x_*` | calculation sheets (calc pad), one per logical unit |
 | `2x_*` | drawings (part drawing, schematic) — [reference/part-drawing.md](reference/part-drawing.md) |
 | `7x_*` | **printable report** (style R): procedure with substituted values, tables, sketches, signatures — [reference/report-sheet.md](reference/report-sheet.md) |
@@ -114,7 +122,8 @@ No hidden sheets / rows. Done when all sheets exist with a title block and banne
 
 ## 3. Calculation sheet
 
-**Style** per [reference/sheet-styles.md](reference/sheet-styles.md): the main check as a
+**Style** per the chosen layout ([reference/layouts.md](reference/layouts.md)) and
+[reference/sheet-styles.md](reference/sheet-styles.md): the main check as a
 **compact check sheet K** (TCC style: red section headings, blue underlined inputs, sketch with
 loads top right, design status with a utilisation chart, load case table with relations,
 assumptions a)–f)); long derivations as **calc pad P**; for printing / PDF add a **report sheet R** that only reads
@@ -199,11 +208,12 @@ Done when all 5 points passed; the result of the hand check goes into your answe
 ## Supporting files
 
 - `scripts/engcalc.py` — library (path B)
-- `scripts/example_ipe_beam.py` — reference build: IPE beam check (EN 1993-1-1) with a printable report `70_Report`
+- `scripts/example_ipe_beam.py` — reference build: IPE beam check (EN 1993-1-1) with a printable report `70_Report`; `--screen` builds the one-screen calculator `02_Calculator` (layout S)
 - `scripts/example_flange.py` — reference build: flange with ISO 286 fit, ISO 2768, tolerance chain and a live drawing
 - `scripts/verify.py` — LibreOffice recalculation, lint, render
 - `reference/vba.md` — macros for desktop Excel only (Claude in Excel does not run VBA)
 - `reference/patterns.md` — catalogue of patterns from reference workbooks (iteration, FDM grid, variants)
 - `reference/part-drawing.md` — parametric part drawing in Excel (outline, dimensions, tolerances, GD&T, title block)
 - `reference/dashboard-widgets.md` — controls, gauges, shapes, flowcharts
+- `reference/layouts.md` — layout catalogue with previews (S, M, K, V, P, R, D) — the user picks one
 - `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)

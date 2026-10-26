@@ -64,6 +64,14 @@ rp.table(cols, rows, at="left", total={"M": "MAX"});  rp.chart(chart);  rp.check
 rp.close()
 ```
 
+### One-screen calculator (layout S, see [layouts.md](layouts.md), `example_ipe_beam.py --screen`)
+
+```python
+sc = book.screen_sheet("02_Calculator", "Beam calculator", "…")   # zones left | mid | right, banner row 2
+sc.input("in_L", "Span L", 6.0, "m", lo=1, hi=12)                  # inputs live here; the calc pad links them
+sc.fields(…, at="left");  sc.chart(…, at="mid");  sc.panel(…, at="right");  sc.checks(at="right");  sc.close()
+```
+
 ### Drawing toolkit (see [part-drawing.md](part-drawing.md), reference `example_flange.py`)
 
 ```python

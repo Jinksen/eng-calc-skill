@@ -90,6 +90,9 @@ files open in **LibreOffice** too.
 <td width="50%"><img src="docs/images/flange-calc-sheet.png" alt="Calculation sheet"><br><sub><b>Calculation sheet</b> — guarded inputs, sourced constants, every step with its formula</sub></td>
 </tr>
 <tr>
+<td colspan="2"><img src="docs/images/ipe-calculator.png" alt="One-screen calculator"><br><sub><b>One-screen calculator</b> (layout S) — inputs with ✔/✘, sketch, M(x) and w(x), key result, η with data bars and the live banner on one page; a wrong value shows its consequence at once. The skill lets you pick the layout: S, mosaic of pages, compact check sheet, variants, calc pad or report</sub></td>
+</tr>
+<tr>
 <td><img src="docs/images/ipe-report-p1.png" alt="Printable report"><br><sub><b>Printable report</b> — reads like a hand calculation, ready to attach to a technical report</sub></td>
 <td><img src="docs/images/ipe-overview.png" alt="Overview dashboard"><br><sub><b>Overview</b> — key numbers, live sketch, diagrams and how close each check is to its limit</sub></td>
 </tr>

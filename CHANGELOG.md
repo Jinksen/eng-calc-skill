@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0 — 2026-10-26
+
+- **Layout choice**: `reference/layouts.md` — catalogue with previews (S one-screen calculator,
+  M mosaic of pages, K compact check sheet, V variants in columns, P calc pad, R report,
+  D overview); SKILL.md §1 makes the layout a specification item the user picks.
+- `ScreenSheet` (`book.screen_sheet`): one-screen calculator — inputs with ✔ / ✘, sketch,
+  diagrams, key result, η with data bars and the live banner on one landscape page.
+  `example_ipe_beam.py --screen` builds the same beam check with `02_Calculator`.
+- `engcalc.py`: shared input validation `_bounded()`, report zones generalised, the register
+  counts inputs out of range on any sheet / column.
+
 ## 0.3.0 — 2026-10-25
 
 - **Everything in English**: skill, references, library texts written into workbooks

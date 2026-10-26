@@ -2,7 +2,7 @@
 
 Two styles, same data, same conditions ([conditions.md](conditions.md)), same names.
 They differ in layout and density. A third, **R — printable report**, only reads from them:
-[report-sheet.md](report-sheet.md).
+[report-sheet.md](report-sheet.md). Which layout to build is the user's choice — [layouts.md](layouts.md).
 
 | | **K — compact check sheet** (preferred) | **P — calc pad** |
 |---|---|---|

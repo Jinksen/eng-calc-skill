@@ -5,7 +5,8 @@ constants with sources, documented formulas, limit checks (le), validity
 conditions, dynamic remarks, parametric sketch chart, M(x)/w(x) diagrams,
 utilisation chart, rendered equations and README.
 
-    python example_ipe_beam.py out/beam_check_IPE_v1.0.xlsx
+    python example_ipe_beam.py out/beam_check_IPE_v1.0.xlsx            # layout P: inputs on the calc pad
+    python example_ipe_beam.py out/beam_calculator.xlsx --screen       # layout S: one-screen calculator
 """
 from __future__ import annotations
 
@@ -58,7 +59,7 @@ def beam_sketch() -> bytes:
     return png
 
 
-def build(out: Path) -> Path:
+def build(out: Path, layout: str = "pad") -> Path:
     book = EngWorkbook(Meta(
         project="Reference project – steel footbridge",
         title="Simply supported IPE beam check",
@@ -83,18 +84,34 @@ def build(out: Path) -> Path:
              source="EN 1993-1-1, Tab. 3.1 (t ≤ 40 mm)")
     db.close()
 
+    # -- inputs: on the calc pad (layout P) or on a one-screen calculator (layout S) ---- #
+    inputs = [  # key, label, short label, symbol, value, unit, bounds
+        ("in_L", "Span", "Span L", "L", 6.0, "m", dict(lo=1.0, hi=12.0)),
+        ("in_gk", "Permanent load excluding self-weight", "Perm. load g_k", "g_k", 6.0, "kN/m", dict(lo=0.0, hi=60.0)),
+        ("in_qk", "Variable load", "Var. load q_k", "q_k", 5.0, "kN/m", dict(lo=0.0, hi=60.0)),
+        ("in_sec", "Section", "Section", "", "IPE 240", "", dict(choices="lst_IPE")),
+        ("in_steel", "Steel grade", "Steel grade", "", "S235", "", dict(choices="lst_steel")),
+        ("in_wlim", "Deflection limit as L/n", "Defl. limit L/n", "n", 250, "–", dict(lo=150, hi=500, fmt="0", source="EN 1993-1-1 NA.2.23")),
+        ("in_ltb", "Compression flange restrained against LTB (1 = yes)", "LTB restrained", "", 1, "–",
+         dict(lo=0, hi=1, fmt="0")),
+    ]
+    if layout == "screen":
+        sc = book.screen_sheet("02_Calculator", "Beam calculator",
+                               "One-screen calculator: inputs, sketch, diagrams, status and checks side by side")
+        sc.section("Inputs", at="left")
+        for key, _, short, _, value, unit, kw in inputs:
+            sc.input(key, short, value, unit, at="left", **{k: v for k, v in kw.items() if k != "source"})
+
     # -- calculation ------------------------------------------------------------------ #
     s = book.calc_sheet("10_Beam", "Beam check", "Inputs, calculation, ULS and SLS checks")
     s.section("Input data")
     s.figure(beam_sketch(), width_px=430)
-    s.input("in_L", "Span", "L", 6.0, "m", lo=1.0, hi=12.0)
-    s.input("in_gk", "Permanent load excluding self-weight", "g_k", 6.0, "kN/m", lo=0.0, hi=60.0)
-    s.input("in_qk", "Variable load", "q_k", 5.0, "kN/m", lo=0.0, hi=60.0)
-    s.input("in_sec", "Section", "", "IPE 240", "", choices="lst_IPE")
-    s.input("in_steel", "Steel grade", "", "S235", "", choices="lst_steel")
-    s.input("in_wlim", "Deflection limit as L/n", "n", 250, "–", lo=150, hi=500, fmt="0",
-            source="EN 1993-1-1 NA.2.23")
-    s.input("in_ltb", "Compression flange restrained against LTB (1 = yes)", "", 1, "–", lo=0, hi=1, fmt="0")
+    for key, label, _, sym, value, unit, kw in inputs:
+        if layout == "screen":  # inputs live on 02_Calculator, the pad shows them as links
+            s.calc(None, label, sym, key, unit, fmt="General" if "choices" in kw else kw.get("fmt", "0.00"),
+                   source="02_Calculator")
+        else:
+            s.input(key, label, sym, value, unit, **kw)
 
     s.section("Constants and factors")
     s.const("c_gG", "Partial factor, permanent actions", "γ_G", 1.35, "–", source="EN 1990, Tab. A1.2(B)")
@@ -192,6 +209,25 @@ def build(out: Path) -> Path:
                     note=f"{n + 1} points along the beam; M = q x (L − x)/2, w = q x (L³ − 2Lx² + x³)/(24 E I); 10^4: cm⁴ → mm⁴")
     gd.close()
 
+    if layout == "screen":  # everything that reacts to the inputs, on the same screen
+        sc.fields([("Section depth h", "=calc_h", "mm", "0"), ("W_pl,y", "=calc_Wpl", "cm³", "0.0"),
+                   ("I_y", "=calc_Iy", "cm⁴", "0"), ("f_y", "=calc_fy", "MPa", "0"),
+                   ("q_Ed (ULS)", "=calc_qEd", "kN/m", "0.00")], at="left", title="Section · load")
+        sc.chart(sketch_chart(sec, "x", "y", half_range=170, size_cm=5.5, title="Section"), at="left")
+        sc.figure(beam_sketch(), at="mid")
+        sc.chart(xy_chart("M_Ed(x)", "x [m]", "M [kNm]", [(diag, "x", "M", "M_Ed")], width=7.8, height=5.0,
+                          smooth=True), at="mid")
+        sc.chart(xy_chart("w(x)", "x [m]", "w [mm]", [(diag, "x", "w", "w")], width=7.8, height=5.0,
+                          smooth=True), at="mid")
+        sc.panel("Utilisation η max", "=out_eta", "", "0.00", at="right",
+                 tiles=[("M_Ed", "=out_MEd", "0.0"), ("M_c,Rd", "=out_McRd", "0.0"), ("w", "=out_w", "0.0")])
+        sc.fields([("M_Ed / M_c,Rd", '=FIXED(out_MEd,1)&" / "&FIXED(out_McRd,1)', "kNm", "@"),
+                   ("V_Ed / V_pl,Rd", '=FIXED(out_VEd,1)&" / "&FIXED(out_VplRd,1)', "kN", "@"),
+                   ("w / w_lim", '=FIXED(out_w,1)&" / "&FIXED(calc_wlim,1)', "mm", "@")],
+                  at="right", label_cols=2, title="Effect / resistance")
+        sc.checks(at="right")
+        sc.close()
+
     # -- dashboard --------------------------------------------------------------------- #
     d = book.dashboard("01_Overview", "Overview", "Key results, section sketch, diagrams, check utilisation")
     d.kpis([
@@ -281,5 +317,6 @@ def build(out: Path) -> Path:
 
 
 if __name__ == "__main__":
-    target = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("beam_check_IPE_v1.0.xlsx")
-    print(build(target))
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    target = Path(args[0]) if args else Path("beam_check_IPE_v1.0.xlsx")
+    print(build(target, "screen" if "--screen" in sys.argv else "pad"))
