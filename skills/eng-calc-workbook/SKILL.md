@@ -77,24 +77,36 @@ Done when the path is chosen and its reference file is loaded.
 
 ## 1. Calculation specification (before the first cell)
 
-Write down this table and have the user confirm it — nothing is built without it:
+Write down this table and have the user confirm it — nothing is built without it. The rows
+marked → spec are detailed in [reference/specification.md](reference/specification.md): what to
+ask, the defaults to offer, and where each answer lives in the workbook.
 
 | Item | Content |
 |---|---|
 | Purpose and field | what is checked; electrical / mechanical / civil (sets the accent colour) |
-| Inputs | symbol, description, SI unit, **min–max** or **list**, source |
+| **Requirements** → spec §1 | ID, requirement, **origin** (standard / contract / client spec / internal rule), limit; every requirement gets a check |
+| **Normative basis** → spec §2 | standard + **edition** + national annex + options chosen (NDPs, method alternatives) |
+| **Safety concept** → spec §3 | partial factors / global safety factor / rating with derating / acceptance criterion; class; `cfg_eta_warn` |
+| Inputs | symbol, description, SI unit, **min–max** or **list**, source and **status** (confirmed / measured / standard / assumed → spec §6) |
+| **Cases** → spec §4 | load cases, operating states or scenarios, combination rule; a single case is stated as such |
+| **Conventions** → spec §5 | axes and origin, positive directions, electrical reference system, angle units |
+| Tolerances (optional) → spec §7 | nominal or unfavourable values; input tolerances, measurement uncertainty |
 | Constants | value, unit, **standard + clause / table** |
 | Databases | catalogues (sections, cables, materials, tolerances) → sheets `9x_` |
 | Steps | relation as written + source, in calculation order |
-| Checks | "effect ≤ resistance" or "value ≥ minimum" → η, source of the condition |
+| Checks | "effect ≤ resistance" or "value ≥ minimum" → η, requirement ID, source of the condition |
 | Validity conditions | assumptions of the method (regime, range, class) → `condition` rows |
+| Test data (optional) → spec §8 | when measurements are judged: instruments with calibration, test conditions, **decision rule** |
 | Reference case | a known result (worked example from a standard / textbook, hand calculation) |
 | Target platform | Excel 365 / 2021 / 2016 / LibreOffice — decides which functions you may use |
 | **Layout** | **the user chooses** — S one-screen calculator · M mosaic of pages · K compact check sheet · V variants in columns · P calc pad · R printable report ([reference/layouts.md](reference/layouts.md)) |
 
-Do not make up a missing parameter — ask, or mark it as an assumption in the README.
-Done when every check has both sides of the inequality and a source, every input a range,
-and the user picked a layout.
+Ask in groups ([reference/specification.md](reference/specification.md) "How to ask"), not
+item by item. Do not make up a missing parameter — ask, or record it in the assumption register
+as **TO CONFIRM** (spec §6); the banner then shows ▲ until it is confirmed.
+Done when every requirement has a check, every check both sides of the inequality and a
+source, every input a range and a status, the edition of every standard is known (or an
+assumption), the cases are listed, and the user picked a layout.
 
 **Layout is the user's choice, not yours.** Show the table and the previews from
 [reference/layouts.md](reference/layouts.md) (`AskUserQuestion` with previews when you have it),
@@ -200,10 +212,19 @@ Axes always with units, no 3D, series colours from the palette.
 2. The reference case from the specification matches (deviation stated in the README or as a `check`).
 3. Hand check of at least one check (compute it independently, tell the user).
 4. Condition test: one input beyond its limit → banner ✘; revert.
-5. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
+5. Traceability ([reference/specification.md](reference/specification.md)):
+   - every requirement has a check (`req_status` without ✘);
+   - every standard has its edition and national annex in the README;
+   - every factor of the safety concept is applied once, visibly in col. G;
+   - every check names its governing case (or the README says "single case");
+   - every input has a status; unconfirmed assumptions are listed in your answer and the
+     workbook is marked PRELIMINARY while any remain;
+   - test data: every instrument calibrated on the test date, the decision rule in the README.
+6. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
    Path A: go through the checklist in [reference/excel-in-place.md](reference/excel-in-place.md).
 
-Done when all 5 points passed; the result of the hand check goes into your answer.
+Done when all 6 points passed; the result of the hand check and the list of unconfirmed
+assumptions go into your answer.
 
 ## Supporting files
 
@@ -215,5 +236,6 @@ Done when all 5 points passed; the result of the hand check goes into your answe
 - `reference/patterns.md` — catalogue of patterns from reference workbooks (iteration, FDM grid, variants)
 - `reference/part-drawing.md` — parametric part drawing in Excel (outline, dimensions, tolerances, GD&T, title block)
 - `reference/dashboard-widgets.md` — controls, gauges, shapes, flowcharts
+- `reference/specification.md` — what to ask before building: requirements, normative basis, safety concept, cases, conventions, input status, tolerances, test data
 - `reference/layouts.md` — layout catalogue with previews (S, M, K, V, P, R, D) — the user picks one
 - `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)

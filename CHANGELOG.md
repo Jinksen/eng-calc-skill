@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+- **Calculation specification**: `reference/specification.md` — what to ask before building, for
+  every field: requirements with their origin and coverage check (`req_status`), normative basis
+  (edition, national annex, options chosen), safety concept (partial factors / global factor /
+  derating / acceptance criterion), cases with an envelope and the governing case found by
+  formula, sign convention and coordinate system, status of input data with an assumption
+  register (▲ in the banner while any is TO CONFIRM), input tolerances, test reports with
+  instruments, calibration and a decision rule (ISO 14253-1 / ILAC-G8).
+- `SKILL.md` §1: specification table extended with these items, asked in groups; §6: new
+  traceability step.
+- `CalcSheet.condition(…, warn=…)`: an unmet condition gives ▲ instead of ✘.
+
 ## 0.4.0 — 2026-10-26
 
 - **Layout choice**: `reference/layouts.md` — catalogue with previews (S one-screen calculator,

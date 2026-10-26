@@ -36,6 +36,8 @@ s.calc("calc_R", "Line resistance", "R", "c_rho*2*in_L/in_S", "Ω", text="R = ρ
 s.result("out_dU", …)
 s.check("chk_dU", "Voltage drop", "η_ΔU", value="out_dU", limit="in_dUmax", unit="%", kind="le", dec=2, source="…")
 s.condition("chk_rng", "Validity of the formula", "calc_Re>4000", ok="turbulent", fail="out of range", source="…")
+s.condition("chk_asm", "Assumptions confirmed", 'COUNTIF(asm_status,"TO CONFIRM")=0',
+            ok="all assumptions confirmed", warn="result conditional")  # warn= → ▲ instead of ✘ (specification.md §6)
 s.remark("Regime", 'IF(calc_Re>4000,"turbulent","laminar")')
 s.equation(r"R=\rho\,\frac{2L}{S}")      # matplotlib mathtext → picture
 s.figure(png_bytes, width_px=430);  s.chart(chart, rows=16)

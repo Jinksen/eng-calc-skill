@@ -914,15 +914,21 @@ class CalcSheet:
         self.r += 1
         return cell
 
-    def condition(self, key: str, label: str, condition: str, *, ok: str, fail: str,
-                  text: str = "", source: str = "") -> Cell:
-        """Boolean validity condition (scope of the method, regime, required assumption)."""
+    def condition(self, key: str, label: str, condition: str, *, ok: str, fail: str = "",
+                  warn: str = "", text: str = "", source: str = "") -> Cell:
+        """Boolean validity condition (scope of the method, regime, required assumption).
+
+        An unmet condition gives ✘ `fail`, or ▲ `warn` when the result stays usable but
+        conditional (e.g. unconfirmed assumptions)."""
+        if bool(fail) == bool(warn):
+            raise ValueError(f"condition {key!r}: give exactly one of fail= or warn=")
         cond = fx(condition)[1:]
         self._row_frame(label, "", "", source)
         self._cell("val", f'=IF({cond},"YES","NO")', "ec_calc")
         if text:
             self.ws.cell(self.r, COL["text"], text)
-        cell = self._cell("stat", f'=IF({cond},"{OK} {ok}","{FAIL} {fail}")', "ec_status")
+        no = f"{FAIL} {fail}" if fail else f"{WARN} {warn}"
+        cell = self._cell("stat", f'=IF({cond},"{OK} {ok}","{no}")', "ec_status")
         self.book.define(key, self.ws, cell.coordinate)
         rec = CheckRecord(self.ws.title, self.r, label, "", False)
         self.book.checks.append(rec)
