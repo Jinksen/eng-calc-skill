@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+- **Databases**: `reference/databases.md` — writing catalogues and registers as Excel tables
+  (one record per row, unique key, units in headers, master tables and references, wide vs.
+  long), dropdowns (catalogue, dependent compatible / dynamic-array, filtered to complying
+  items, stale child value), choice of lookup function, integrity conditions, entry forms
+  (table, Data Form, VBA, Microsoft Forms, Power Query, Data Model), literature.
+- `DataSheet.table`: `db_*` / `lst_*` names are structured references (`=tbl_x[Header]`), so
+  lookups and dropdowns grow with the table; duplicate headers are refused.
+- `DataSheet.dependent_list`: non-volatile dependent dropdown (`INDEX:INDEX` name) for every
+  Excel and LibreOffice; refuses a table not grouped by the parent.
+- New helpers: `lookup2` (several keys), `next_higher`, `struct_ref`, catalogue conditions
+  `unique_keys`, `refs_ok`, `grouped`, `ascending`.
+- A selection input with a numeric key keeps its number format (a text-formatted cell stored
+  the picked `16` as `"16"` and `MATCH` against numbers failed).
+
 ## 0.5.0 — 2026-10-26
 
 - **Calculation specification**: `reference/specification.md` — what to ask before building, for

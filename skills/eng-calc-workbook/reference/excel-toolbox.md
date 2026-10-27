@@ -37,11 +37,15 @@ The minimum the agent keeps in mind; details and versions in the sections below.
 | next higher standard value (section series, E12, breakers) | `XLOOKUP(x;series;series;;1)` / `INDEX(series;MATCH(TRUE;series>=x;0))` | ✔ | ✔ | ✔* | ✔ |
 | all items that comply | `FILTER(tbl[Name];(cond1)*(cond2);"none complies")` | ✔ | ✔ | ✘ | ≥24.8 |
 | sort a catalogue by utilisation | `SORTBY(tbl[Name];eta_column;1)` | ✔ | ✔ | ✘ | ≥24.8 |
-| dependent dropdown | data validation with source `=FILTER(...)` through a named range | ✔ | ✔ | ✘ | — |
+| value by several keys | `XLOOKUP(1;(a=x)*(b=y);col)` / `INDEX(col;MATCH(1;INDEX((a=x)*(b=y);0);0))` | ✔ | ✔ | ✔ | ✔ |
+| dependent dropdown | helper `=SORT(UNIQUE(FILTER(...)))` on `9x_`, name → spill `…#` | ✔ | ✔ | ✘ | ✘ |
+| dependent dropdown, compatible | name `INDEX(c;MATCH(p;P;0)):INDEX(c;MATCH(p;P;0)+COUNTIF(P;p)-1)`, table grouped by parent | ✔ | ✔ | ✔ | ✔ |
 | table columns / rows | `CHOOSECOLS`, `TAKE`, `DROP`, `VSTACK`, `HSTACK` | ✔ | 24 | ✘ | ✘ |
 
 `*` in 16 as an array formula. A catalogue is always an Excel table; structured references
-`tbl_brg[C]` in table formulas, `db_*` names outside them.
+`tbl_brg[C]` in table formulas, `db_*` names (= `tbl_brg[C]`, they grow with the table)
+outside them. Writing the tables, dropdowns, integrity conditions and forms:
+[databases.md](databases.md).
 
 ## 2. Interpolation and approximation (tables from standards, characteristics)
 

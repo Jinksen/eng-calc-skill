@@ -17,6 +17,7 @@ Python 3.10+, `openpyxl>=3.1`, `Pillow`; `matplotlib` for equations and sketches
 
 ```python
 from engcalc import (EngWorkbook, Meta, Col, index_match, interval_lookup, tol_text,
+                     lookup2, next_higher, unique_keys, refs_ok, grouped, ascending, struct_ref,
                      xy_chart, sketch_chart, drawing_chart, DrawSeries, png_from_figure, fx, let)
 
 book = EngWorkbook(Meta(project=…, title=…, subject=…, author=…, date=dt.date(…),
@@ -24,8 +25,12 @@ book = EngWorkbook(Meta(project=…, title=…, subject=…, author=…, date=dt
 
 db = book.data_sheet("90_Database", "Databases", "purpose for the README")
 db.table("cable", [Col("key", "Size"), Col("Iz", "Iz [A]", "0")], rows, source="IEC … Tab. …")
-#  → tbl_cable, db_cable_Iz, db_cable_key, lst_cable
+#  → tbl_cable, db_cable_Iz, db_cable_key, lst_cable  (structured references: grow with the table)
+db.dependent_list("cable_by_mat", "cable", "key", "mat", "in_mat")   # → lst_cable_by_mat (table grouped by mat)
 db.close()
+#  lookups: index_match(t, col, key) · lookup2(t, col, (c1, e1), (c2, e2)) · next_higher(series, x)
+#  catalogue conditions: unique_keys(keys) · refs_ok(refs, keys) · grouped(col) · ascending(col)
+#  → reference/databases.md
 
 s = book.calc_sheet("10_Calc", "Sheet title", "purpose for the README")
 s.section("Input data");  s.subsection("…");  s.comment("…")

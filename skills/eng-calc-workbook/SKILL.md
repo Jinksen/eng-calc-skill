@@ -8,7 +8,9 @@ description: >
   shapes and diagrams. Use when the user creates, rebuilds or reviews an .xlsx with a
   technical calculation, wants to draw or visualise a part, cross-section, assembly or
   diagram in Excel, wants a printable calculation report / data sheet (formulas with
-  substituted values, tables with totals, small sketches, signatures), asks how to lay out a calculation in Excel, works directly in a workbook
+  substituted values, tables with totals, small sketches, signatures), asks how to lay out a calculation in Excel,
+  builds catalogues / databases in a workbook (sections, cables, materials, registers) with
+  dropdowns, dependent dropdowns and lookup functions, works directly in a workbook
   through Claude in Excel, or wants to split a larger calculation workbook into tickets.
   Also applies to LibreOffice Calc.
 ---
@@ -92,7 +94,7 @@ ask, the defaults to offer, and where each answer lives in the workbook.
 | **Conventions** → spec §5 | axes and origin, positive directions, electrical reference system, angle units |
 | Tolerances (optional) → spec §7 | nominal or unfavourable values; input tolerances, measurement uncertainty |
 | Constants | value, unit, **standard + clause / table** |
-| Databases | catalogues (sections, cables, materials, tolerances) → sheets `9x_` |
+| Databases | catalogues (sections, cables, materials, tolerances) → sheets `9x_`; master tables, keys, dependent dropdowns → [reference/databases.md](reference/databases.md) |
 | Steps | relation as written + source, in calculation order |
 | Checks | "effect ≤ resistance" or "value ≥ minimum" → η, requirement ID, source of the condition |
 | Validity conditions | assumptions of the method (regime, range, class) → `condition` rows |
@@ -127,7 +129,7 @@ for electrical / mechanical / civil).
 | `2x_*` | drawings (part drawing, schematic) — [reference/part-drawing.md](reference/part-drawing.md) |
 | `7x_*` | **printable report** (style R): procedure with substituted values, tables, sketches, signatures — [reference/report-sheet.md](reference/report-sheet.md) |
 | `80_Checks` | register of all checks and conditions, `cfg_eta_warn`, totals `chk_eta/chk_fail/chk_warn` |
-| `9x_*` | databases (Excel tables) and chart / drawing data |
+| `9x_*` | databases (Excel tables, one record per row, unique key, source row) and chart / drawing data — [reference/databases.md](reference/databases.md) |
 
 Data flows one way: inputs → calculation → checks → overview. Sheet names `NN_Ascii`.
 No hidden sheets / rows. Done when all sheets exist with a title block and banner.
@@ -154,7 +156,7 @@ Relation / condition | Source / standard | Limit / status`. Row types:
 | Type | Value cell | Status (col. I) | Required |
 |---|---|---|---|
 | **input** | yellow, blue font, unlocked, data validation | ✔ within limits / ✘ out of range | min–max or list |
-| **select** | teal, list from `lst_*` | ✔ from list | lookup table in `9x_` |
+| **select** | teal, list from `lst_*` (dependent list below its parent) | ✔ from list / ✘ not in list | lookup table in `9x_` |
 | **const** | purple | — | source (standard, clause) |
 | **calc** | formula, black (green = from another sheet) | — | relation as written in col. G |
 | **check** | η = effect / resistance | ✔ / ▲ / ✘ | both sides + source |
@@ -239,3 +241,4 @@ assumptions go into your answer.
 - `reference/specification.md` — what to ask before building: requirements, normative basis, safety concept, cases, conventions, input status, tolerances, test data
 - `reference/layouts.md` — layout catalogue with previews (S, M, K, V, P, R, D) — the user picks one
 - `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)
+- `reference/databases.md` — writing catalogues and registers as Excel tables, dropdowns (dependent, filtered), lookup functions, integrity conditions, entry forms, literature

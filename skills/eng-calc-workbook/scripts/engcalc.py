@@ -183,6 +183,50 @@ def interval_lookup(values: str, upper_bounds: str, x: str) -> str:
     return f'INDEX({values},COUNTIF({upper_bounds},"<"&{x})+1)'
 
 
+def struct_ref(table: str, header: str) -> str:
+    """Structured reference to the data of one table column: `tbl_cable[Iz '[A']]`."""
+    return f"tbl_{table}[" + "".join("'" + ch if ch in "[]#'" else ch for ch in header) + "]"
+
+
+def lookup2(table: str, col: str, *criteria: tuple[str, str]) -> str:
+    """Lookup by several key columns, `criteria` = (column, expression) pairs.
+
+    `INDEX(…;0)` evaluates the product as an array without Ctrl+Shift+Enter, so it works in
+    every Excel and LibreOffice. No match → #N/A (wrap it in a status, not in IFERROR).
+    """
+    cond = "*".join(f"(db_{table}_{c}={e})" for c, e in criteria)
+    return f"INDEX(db_{table}_{col},MATCH(1,INDEX({cond},0),0))"
+
+
+def next_higher(values: str, x: str) -> str:
+    """Smallest value ≥ x from an ascending series (sections, E-series, breaker ratings).
+
+    No such value → #N/A: guard it with a condition `x<=MAX(values)`.
+    """
+    return f"INDEX({values},MATCH(TRUE,INDEX({values}>={x},0),0))"
+
+
+def unique_keys(keys: str) -> str:
+    """Condition: the key column has no blanks and no duplicates (lookup returns the first hit)."""
+    return f'AND(COUNTBLANK({keys})=0,SUMPRODUCT(--(COUNTIF({keys},{keys})>1))=0)'
+
+
+def refs_ok(refs: str, keys: str) -> str:
+    """Condition: every value of the reference column `refs` exists in the master `keys`."""
+    return f"SUMPRODUCT(--(COUNTIF({keys},{refs})=0))=0"
+
+
+def grouped(col: str) -> str:
+    """Condition: equal values in `col` are in one contiguous block (needed by dependent lists)."""
+    return f"SUMPRODUCT(--(ROW({col})-MIN(ROW({col}))+1>MATCH({col},{col},0)+COUNTIF({col},{col})-1))=0"
+
+
+def ascending(col: str) -> str:
+    """Condition: `col` strictly ascending (approximate MATCH, interval lookups, next_higher)."""
+    return (f"SUMPRODUCT(--(INDEX({col},2):INDEX({col},ROWS({col}))"
+            f"<=INDEX({col},1):INDEX({col},ROWS({col})-1)))=0")
+
+
 def tol_text(upper: str, lower: str, dec: int = 2) -> str:
     """Tolerance text for a dimension label: '±0.10', '+0.021/0', '-0.007/-0.020'."""
     def signed(e: str) -> str:
@@ -377,12 +421,15 @@ class EngWorkbook:
 
     # -- names ------------------------------------------------------------- #
     def define(self, name: str, ws: Worksheet, coord: str) -> None:
+        self.define_formula(name, ws, f"{quote_sheetname(ws.title)}!{absolute_coordinate(coord)}")
+
+    def define_formula(self, name: str, ws: Worksheet, refers_to: str) -> None:
+        """Name for a reference formula: structured reference, INDEX:INDEX range, … (`ws` = home sheet)."""
         _check_name(name)
         clash = next((n for n in self.names if n.lower() == name.lower()), None)
         if clash:  # Excel names are case-insensitive: in_D and in_d are the same name
             raise ValueError(f"defined name {name!r} collides with {clash!r} (names are case-insensitive)")
-        ref = f"{quote_sheetname(ws.title)}!{absolute_coordinate(coord)}"
-        self.wb.defined_names[name] = DefinedName(name, attr_text=ref)
+        self.wb.defined_names[name] = DefinedName(name, attr_text=refers_to.lstrip("="))
         self.names[name] = ws.title
 
     def sheet_of(self, formula: str) -> set[str]:
@@ -844,7 +891,7 @@ class CalcSheet:
         """Manual input. Numeric inputs need lo/hi; selection inputs need a list name (lst_*)."""
         self._row_frame(label, symbol, unit, source)
         cell = self._cell("val", value, "ec_select" if choices else "ec_input")
-        cell.number_format = fmt if not choices else "@"
+        cell.number_format = "@" if choices and isinstance(value, str) else fmt  # numeric keys stay numbers
         ref = f"${get_column_letter(COL['val'])}{self.r}"
         dv, status, hint = _bounded(self.book, key, symbol or label, unit, lo=lo, hi=hi, choices=choices, ref=ref)
         self._cell("text", hint, "ec_comment")
@@ -1012,15 +1059,19 @@ class DataSheet:
         ws["B2"].style = "ec_comment"
         self.r = 4
         self._max_col = 2
+        self._tables: dict[str, tuple[dict[str, int], Sequence[Sequence[Scalar]]]] = {}
 
     def table(self, name: str, cols: Sequence[Col], rows: Sequence[Sequence[Scalar]], *,
               source: str, key: str | None = None) -> Block:
         """Excel Table + names db_<name>_<col>, db_<name>_key and lst_<name> (dropdown source).
 
-        The first column is the lookup key unless `key` names another column.
+        The first column is the lookup key unless `key` names another column. The names are
+        structured references, so they grow with the table when rows are added in Excel.
         """
         if not rows:
             raise ValueError(f"table {name!r} is empty")
+        if len({c.header.lower() for c in cols}) != len(cols):
+            raise ValueError(f"table {name!r}: column headers must be unique (case-insensitive)")
         ws = self.ws
         ws.cell(self.r, 2, f"tbl_{name}").font = _font(C.NAVY, bold=True)
         ws.cell(self.r + 1, 2, f"Source: {source}").style = "ec_source"
@@ -1045,14 +1096,35 @@ class DataSheet:
         for col in cols:
             if col.key == "key":
                 continue  # defined below as db_<name>_key
-            letter = get_column_letter(colmap[col.key])
-            self.book.define(f"db_{name}_{col.key}", ws, f"{letter}{hr + 1}:{letter}{last}")
-        key_letter = get_column_letter(colmap[key or cols[0].key])
-        self.book.define(f"db_{name}_key", ws, f"{key_letter}{hr + 1}:{key_letter}{last}")
-        self.book.define(f"lst_{name}", ws, f"{key_letter}{hr + 1}:{key_letter}{last}")
+            self.book.define_formula(f"db_{name}_{col.key}", ws, struct_ref(name, col.header))
+        key_col = next(c for c in cols if c.key == (key or cols[0].key))
+        self.book.define_formula(f"db_{name}_key", ws, struct_ref(name, key_col.header))
+        self.book.define_formula(f"lst_{name}", ws, struct_ref(name, key_col.header))
+        self._tables[name] = ({c.key: i for i, c in enumerate(cols)}, rows)
         self._max_col = max(self._max_col, 1 + len(cols))
         self.r = last + 3
         return Block(ws, hr + 1, last, colmap)
+
+    def dependent_list(self, name: str, table: str, col: str, parent: str, selected: str) -> None:
+        """Dropdown source `lst_<name>`: values of `col` in the rows whose `parent` = `selected`.
+
+        Non-volatile INDEX:INDEX range — works in every Excel and LibreOffice. The table must
+        keep equal parent values in one block (checked here; in the workbook add a condition
+        `grouped("db_<table>_<parent>")`). Put the child input after `selected`; its status
+        then shows ✘ when a parent change leaves an old child value outside the list.
+        """
+        idx, rows = self._tables[table]
+        seen: list[Scalar] = []
+        for r in rows:
+            v = r[idx[parent]]
+            if seen and v != seen[-1] and v in seen:
+                raise ValueError(f"table {table!r}: rows with {parent} = {v!r} are not in one block")
+            if not seen or v != seen[-1]:
+                seen.append(v)
+        c, p = f"db_{table}_{col}", f"db_{table}_{parent}"
+        first = f"MATCH({selected},{p},0)"
+        self.book.define_formula(f"lst_{name}", self.ws,
+                                 f"INDEX({c},{first}):INDEX({c},{first}+COUNTIF({p},{selected})-1)")
 
     def block(self, name: str, cols: Sequence[Col], rows: Sequence[Sequence[Scalar]], *, note: str = "") -> Block:
         """Formula-driven block (chart data, sketch coordinates). Names gd_<name>_<col>."""
@@ -1619,7 +1691,7 @@ class ScreenSheet(ReportSheet):
         ws.cell(r, c0, label)
         cell = ws.cell(r, c0 + 3, value)
         cell.style = "ec_select" if choices else "ec_input"
-        cell.number_format = "@" if choices else fmt
+        cell.number_format = "@" if choices and isinstance(value, str) else fmt  # numeric keys stay numbers
         ref = f"${get_column_letter(c0 + 3)}{r}"
         dv, status, _ = _bounded(self.book, key, label, unit, lo=lo, hi=hi, choices=choices, ref=ref, short=True)
         ws.add_data_validation(dv)

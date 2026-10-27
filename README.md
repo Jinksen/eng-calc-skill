@@ -62,7 +62,9 @@ summary of checks, signatures.
 
 ### 🛡️ Mistakes caught early
 Inputs out of range, missing sources, hard-coded numbers and broken formulas are flagged
-automatically — before anyone relies on the result.
+automatically — before anyone relies on the result. Catalogues are Excel tables with
+dropdowns (also dependent ones) that grow with the table, and conditions that catch duplicate
+keys, unsorted series and a stale choice.
 
 </td>
 <td valign="top">

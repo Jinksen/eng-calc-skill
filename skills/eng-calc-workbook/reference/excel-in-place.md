@@ -20,8 +20,10 @@ The state after every step must recalculate without errors. Work sheet by sheet,
 3. **`80_Checks`** — title block, `cfg_eta_warn` in E8 = 0.90 with validation 0.5–1.0,
    register header in row 10. Register rows are added with every check.
 4. **Databases `9x_`** — an Excel table (Insert → Table) named `tbl_<x>`, values in the const
-   style, a "Source: …" row above the table. Name the columns `db_<x>_<column>`, the key
-   column `db_<x>_key` and the same range `lst_<x>` for dropdowns.
+   style, a "Source: …" row above the table. Name the columns `db_<x>_<column>` = `=tbl_<x>[Header]`
+   (structured reference — grows with the table), the key column `db_<x>_key` and the same
+   reference `lst_<x>` for dropdowns. Dependent dropdowns, lookups and integrity conditions:
+   [databases.md](databases.md).
 5. **Calculation sheet `1x_`** — column widths A–J, title block rows 1–7, freeze panes at A8,
    gridlines off. Then section by section (row types in SKILL.md §3, formulas in
    [conditions.md](conditions.md)). Name every value as you write it — and remember that names
