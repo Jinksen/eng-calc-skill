@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 — 2026-10-27
 
 - **Databases**: `reference/databases.md` — writing catalogues and registers as Excel tables
   (one record per row, unique key, units in headers, master tables and references, wide vs.
