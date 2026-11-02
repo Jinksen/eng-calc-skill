@@ -76,6 +76,7 @@ follow *Restraint* in visual-language.md so the result looks like a design offic
 | You have a shell + Python (claude.ai, Claude Code) and the output is a file | **B – generated file** → [reference/python-engcalc.md](reference/python-engcalc.md) |
 | The user brought an existing workbook for review | **C – review**: step 1, then [reference/review.md](reference/review.md) |
 | More than ~3 calculation sheets or more checks than fit into one session | **D – tickets** → [reference/tickets.md](reference/tickets.md), then A/B ticket by ticket |
+| Path D or ≥ 2 catalogues to transcribe, and you can start subagents | split the work by role and model tier → [reference/agent-workflow.md](reference/agent-workflow.md) |
 
 Done when the path is chosen and its reference file is loaded.
 
@@ -245,3 +246,4 @@ assumptions go into your answer.
 - `reference/layouts.md` — layout catalogue with previews (S, M, K, V, P, R, D) — the user picks one
 - `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)
 - `reference/databases.md` — writing catalogues and registers as Excel tables, dropdowns (dependent, filtered), lookup functions, integrity conditions, entry forms, literature
+- `reference/agent-workflow.md` — subagent roles on cheaper models (extractor, builder, checker, visual reviewer), file hand-overs, cost rules
