@@ -33,6 +33,43 @@ checks `548235`, data `7030A0`, printable report `C55A11`.
 Colour never carries information alone: a status always has a symbol and text too (✔ ▲ ✘ –),
 black-and-white printing.
 
+## Restraint — a calculation, not a poster
+
+The workbook should look like a sheet from a good design office, not like a generated
+infographic. Every colour, frame and font change must answer "what kind of cell is this?" or
+"does it pass?" — if it answers neither, remove it.
+
+**Budget.** On one screen: white paper, black / grey text, NAVY structure, and colour only on
+cells that *mean* something (input, select, constant, link, result, status). Roughly 80 % of
+cells have no fill. One key result per section gets RESULT_FILL; one banner per sheet. If
+more than ~5 fills are visible in a block, the meaning is lost — drop the decorative ones first.
+
+**Colour = role, never decoration.** A token is used only for its row in the table above:
+yellow is always input, orange frame is always the key result, green / amber / red is always a
+status. Never pick a colour because it "looks nice", never use status colours for headings or
+emphasis, never colour a cell to separate groups (use a thin line or an empty row).
+
+| Don't (reads as AI slop) | Do |
+|---|---|
+| hex values outside this file, Office theme defaults (`4472C4`, `ED7D31`, `A5A5A5`), "brand" gradients | only the tokens above |
+| rainbow tables, a different fill per column / section, alternating colours in a calc pad | white rows, thin `D9D9D9` bottom line; stripes only in long report tables (style R) |
+| gradients, shadows, glow, bevel, 3D, rounded "cards", WordArt | flat fills, straight thin lines; gradient only in the two dashboard widgets that need it (level gauge, overlapping area series — [dashboard-widgets.md](dashboard-widgets.md)) |
+| emoji or decorative icons (🚀 ⚡ 📊 ✅ 💡) in titles, labels, statuses | the four symbols ✔ ▲ ✘ – and engineering symbols (Ø, ±, °, Σ) |
+| marketing headings ("Smart Beam Calculator ✨", "Results Overview 🎯") | plain technical names: `BENDING CHECK`, `3 LOADS` |
+| everything bold, several font sizes per block, centred body text, merged cells | bold only on results, inputs, headings; left text, right numbers; *centre across selection* |
+| thick / coloured frames around every block, boxes inside boxes | frames only on input (thin), key result (medium), banner (medium) |
+| KPI tiles, gauges and charts "because a dashboard should have them" | a widget only when it answers a question faster than the number itself |
+| many decimals, numbers as text with units glued on | format by quantity (below), unit in its own column |
+| filler text: "This powerful tool helps you…", motivational notes | source, assumption, validity limit — or nothing |
+
+**Charts.** Palette order, white plot area (light `DEEBF7` only in style K utilisation),
+no chart border, no shadow, light grey major gridlines on the value axis only, legend only with
+more than one series, data labels only on the governing point, title = what and in which units.
+
+**Self-check before handing over** (look at the rendered PNG / the sheet at 100 %): Does it
+print well in black and white? Can a colleague tell input from result without a legend? For each
+coloured or framed element: would removing it lose information? If not, remove it.
+
 ## Drawing lines (ISO 128)
 
 | Kind | Colour | Width | Dash | Use |

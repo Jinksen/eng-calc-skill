@@ -64,7 +64,9 @@ number come from, what may I change, what verifies it, where does validity end.
 The visual language (colours, column grid, styles, title block) has a **single source of
 truth** in [reference/visual-language.md](reference/visual-language.md). Status formulas, the
 banner and conditional formatting rules are in [reference/conditions.md](reference/conditions.md).
-Both build paths (A and B) use them unchanged.
+Both build paths (A and B) use them unchanged. Colour means a cell's role or a status, never
+decoration: no colours outside the tokens, no emoji, gradients, shadows or marketing headings —
+follow *Restraint* in visual-language.md so the result looks like a design office sheet, not AI slop.
 
 ## 0. Choose the path
 
@@ -143,7 +145,8 @@ loads top right, design status with a utilisation chart, load case table with re
 assumptions a)–f)); long derivations as **calc pad P**; for printing / PDF add a **report sheet R** that only reads
 from them ([reference/report-sheet.md](reference/report-sheet.md)). Content and rules below apply to all.
 
-**Use the visuals fully**: cell styles and the theme, custom number formats, conditional
+**Use the visuals fully, but only where they carry meaning** (Restraint in
+[reference/visual-language.md](reference/visual-language.md)): cell styles and the theme, custom number formats, conditional
 formatting, data bars, sparklines, pictures in cells driven by a selection, shapes with text
 linked to cells, live sketches from charts, linked pictures — catalogue in
 [reference/excel-toolbox.md](reference/excel-toolbox.md) §10–13.
