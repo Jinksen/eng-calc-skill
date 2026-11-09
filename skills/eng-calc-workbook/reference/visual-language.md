@@ -74,6 +74,22 @@ series, more than 4 decimals, a sheet that is mostly filled); the visual review 
 print well in black and white? Can a colleague tell input from result without a legend? For each
 coloured or framed element: would removing it lose information? If not, remove it.
 
+## Marking what matters
+
+Restraint removes decoration, not emphasis. The few things the engineer must not miss are
+marked hard, with text as well as format, so they survive black-and-white printing:
+
+| What | Mark |
+|---|---|
+| block (inputs, each calculation part, checks, assumptions) | section heading bar with a plain name in CAPITALS — no block without one |
+| key result of a block | RESULT_FILL + medium RESULT_EDGE frame, 11 pt bold, label + symbol + unit beside it |
+| governing check (η max) | whole row bold, `GOVERNS` after the status (`✔ GOVERNS`), and on the banner `η max = … (check name)` |
+| value still to confirm (assumed input, missing source) | WARN fill + `▲ TO CONFIRM` in the status column; listed again in the README |
+| important remark (what governs, what is neglected, a validity limit) | NOTE_FONT bold italic, starts with `NOTE:` |
+| out-of-range input | FAIL fill on the value + `✘ allowed lo–hi` on its row (conditions.md) |
+
+Everything else stays plain. If more than one thing per block is marked as key, nothing is.
+
 ## Drawing lines (ISO 128)
 
 | Kind | Colour | Width | Dash | Use |
@@ -96,6 +112,10 @@ coloured or framed element: would removing it lose information? If not, remove i
 - Dates `yyyy-mm-dd`.
 
 ## Calc pad grid (columns A–J)
+
+Narrow on purpose: this is the **record** of every step, read top to bottom. It is never the
+working sheet — the engineer works on a wide sheet (layout S / M, up to ~BB) that sits next
+to it and shows inputs, results and checks side by side (SKILL.md "Sheet layout — hard rules").
 
 | Col. | Width | Role | Style |
 |---|---|---|---|

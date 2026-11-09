@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Sheet layout — hard rules** in `SKILL.md`: use the whole width (up to ~BB, blocks side by
+  side, not everything in A–J), every input sees its results and checks on the same screen
+  without scrolling, important items marked. New verification step 6 (layout test).
+- `visual-language.md` "Marking what matters": block headings, key result frame, `GOVERNS`,
+  `▲ TO CONFIRM`, `NOTE:`; calc pad P stated as the narrow record, not the working sheet.
+- `layouts.md`: layout S grows to the right in 6-column zones up to ~BB instead of down.
+
 ## 0.8.0 — 2026-11-09
 
 - **Templates catalogue** `reference/templates.md`: seven whole-workbook templates (T1 design-office

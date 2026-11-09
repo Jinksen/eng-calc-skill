@@ -35,6 +35,24 @@ description: >
 - **Never guess**: a value from a standard without a source, extrapolation outside a table or
   an invented input is an error. Ask, or record it as an assumption in the README.
 
+### Sheet layout — hard rules (the most common complaint)
+
+1. **Use the whole width.** A working sheet is not one narrow column of A4. Lay blocks side
+   by side to the right — inputs | calculation | sketch / diagrams | checks — as far as the
+   calculation needs, up to **~BB** (≈ 50 columns). A working sheet that ends at column G–J
+   and runs 100+ rows down is a finding. Only the record sheets (calc pad P, report R) are
+   narrow, and they are never the sheet the engineer works in.
+2. **Change a value, see the effect — without scrolling.** Every input sits on the same screen
+   as what it drives: its intermediate results, the sketch and the checks it affects, **at the
+   same height, to its right**, not 80 rows below. Banner and status frozen at the top. If the
+   user must scroll away from an input to see what it changed, rebuild as layout S or M
+   ([reference/layouts.md](reference/layouts.md)).
+3. **Mark what matters.** Every block has a heading saying what it is; the key result has the
+   orange frame, the governing check is labelled **GOVERNS**, unconfirmed values say
+   **TO CONFIRM**, important notes start with **NOTE:** — rules in
+   [reference/visual-language.md](reference/visual-language.md) "Marking what matters". A
+   number without a label, symbol and unit is a finding.
+
 ### Related skills — load them automatically when available
 
 A skill cannot start another skill; you (the agent) can. When you have a skills tool and the
@@ -119,6 +137,7 @@ assumption), the cases are listed, and the user picked a layout.
 [reference/layouts.md](reference/layouts.md) (`AskUserQuestion` with previews when you have it),
 recommend one (default **S + P**, + **R** for a report) and build what they pick. Dense layouts
 (S, M, K) show inputs, sketch and checks on one screen, so a wrong value is noticed at once.
+P alone is never the answer: it is the record behind a wide working sheet (hard rules above).
 
 For the field, see [reference/domains.md](reference/domains.md) (typical checks and limits
 for electrical / mechanical / civil).
@@ -228,10 +247,13 @@ Axes always with units, no 3D, series colours from the palette.
    - every input has a status; unconfirmed assumptions are listed in your answer and the
      workbook is marked PRELIMINARY while any remain;
    - test data: every instrument calibrated on the test date, the decision rule in the README.
-6. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
+6. Layout test: on the working sheet at 100 % (or 70–85 % on a wide sheet), change the main
+   input — its results, sketch and checks change **on the same screen**; the sheet uses the
+   width (not everything in A–J); key result, governing check and TO CONFIRM items are marked.
+7. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
    Path A: go through the checklist in [reference/excel-in-place.md](reference/excel-in-place.md).
 
-Done when all 6 points passed; the result of the hand check and the list of unconfirmed
+Done when all 7 points passed; the result of the hand check and the list of unconfirmed
 assumptions go into your answer.
 
 ## Supporting files

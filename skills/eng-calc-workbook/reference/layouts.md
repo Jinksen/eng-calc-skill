@@ -90,6 +90,13 @@ By hand (path A): 18 columns of width 7, three zones of 6 columns; input row = l
 columns) | yellow value | unit | ✔ / ✘; charts sized to 6 columns (≈ 7.8 cm); banner in row 2
 across B–S; freeze panes below row 2; Page Layout landscape, Fit to 1 × 1 page.
 
+**When it does not fit 18 columns, grow to the right, not down.** Add further 6-column zones
+(T–Y, Z–AE, AF–AK, … up to ~BB), in calculation order left → right: inputs · part 1 · part 2 ·
+sketch · checks. Each zone has its own heading and stays ≤ ~40 rows, so every row of inputs
+sees its results at the same height; view at 70–85 % zoom, banner frozen in row 2, one print
+page per zone or two. `ScreenSheet` covers B–S; place extra zones to the right of it with
+openpyxl on the same grid (column width 7), or use layout M.
+
 ## M — mosaic of pages (TCC style, path A)
 
 One wide sheet with several A4-sized calculation blocks side by side, each block its own
