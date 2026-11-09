@@ -93,6 +93,7 @@ TAB = {
 }
 
 FONT = "Calibri"
+K_RED = "C00000"  # style K section headings (TCC / RCC sheets) — a heading role, not a status
 OK, WARN, FAIL, NA = "✔", "▲", "✘", "–"
 
 # Calc-sheet column grid: role -> (column index, width)
@@ -323,6 +324,14 @@ def _style_defs() -> list[NamedStyle]:
         ns("ec_rep_res", _font(bold=True), border=Border(bottom=_side(C.NAVY)), h="right"),
         ns("ec_rep_status", _font(bold=True), h="centerContinuous"),
         ns("ec_rep_note", _font(C.NOTE_FONT, size=9, italic=True)),
+        # compact check sheet (style K — TCC / RCC design-office sheets)
+        ns("ec_input_k", Font(name=FONT, size=10, color=C.INPUT_FONT, bold=True, underline="single"), h="center", locked=False),
+        ns("ec_section_k", _font(K_RED, size=11, bold=True)),
+        ns("ec_label_k", _font(size=9), h="right"),
+        ns("ec_value_k", _font(), h="center"),
+        ns("ec_rel_k", _font(C.NOTE_FONT, size=9, italic=True)),
+        ns("ec_job_label", _font(size=8)),
+        ns("ec_job", _font(C.NAVY, size=9, bold=True)),
     ]
 
 
@@ -358,6 +367,8 @@ class Meta:
     organisation: str = ""
     standard: str = ""
     domain: Domain = "general"
+    client: str = ""
+    job_no: str = ""
 
 
 @dataclass(frozen=True)
@@ -462,9 +473,15 @@ class EngWorkbook:
     def screen_sheet(self, name: str, title: str, purpose: str) -> "ScreenSheet":
         return ScreenSheet(self, self._new_ws(name, TAB["calc"], purpose), title)
 
+    def form_sheet(self, name: str, title: str, purpose: str, *,
+                   instructions: Sequence[str] = ()) -> "FormSheet":
+        return FormSheet(self, self._new_ws(name, TAB["calc"], purpose), title, instructions)
+
     # -- README ------------------------------------------------------------ #
     _META_ROWS = (
         ("meta_project", "Project", "project"),
+        ("meta_client", "Client", "client"),
+        ("meta_job", "Job no.", "job_no"),
         ("meta_title", "Calculation", "title"),
         ("meta_subject", "Subject", "subject"),
         ("meta_org", "Organisation", "organisation"),
@@ -1737,6 +1754,184 @@ class ScreenSheet(ReportSheet):
         last = max(self._next.values())
         _page_setup(self.ws, f"A1:{get_column_letter(self.NCOLS + 2)}{last}", title_rows=None, landscape=True)
         self.ws.page_setup.fitToHeight = 1
+
+
+class FormSheet(ReportSheet):
+    """Compact check sheet (style K) — the design-office sheet of the TCC / RCC spreadsheets.
+
+    One A4 portrait page, filled edge to edge, on a dense 15-column grid: three blocks per row
+    (`left` B–F, `mid` G–K, `right` L–P) plus `half` (B–K), `wide` (G–P) and `full`. Job box with
+    project / client / location / made by / checked / date / revision / job no., title with
+    STATUS top right, red section headings, rows ``label symbol = value unit`` in two blocks side
+    by side, inputs as **blue underlined** values (no fill), checks with the relation in italics,
+    assumptions a) b) … . Right of the print area (columns R–T) an OPERATING INSTRUCTIONS panel
+    and the input messages: an out-of-range input writes ``✘ label – allowed …`` on its row,
+    like the red messages of the RCC sheets. Inputs live here; the logic stays on a calc pad
+    that reads the in_* names — same names, register and banner as everywhere.
+    """
+
+    # Dense grid: 15 narrow columns B–P, three blocks per row (TCC / RCC sheets use the whole page)
+    NCOLS, COL_W, COL_PX = 15, 6.3, 49
+    SPANS = {"left": (2, 6), "mid": (7, 11), "right": (12, 16), "wide": (7, 16), "half": (2, 11), "full": (2, 16)}
+    ZONES = {"left": ("left",), "mid": ("mid",), "right": ("right",), "wide": ("mid", "right"),
+             "half": ("left", "mid"), "full": ("left", "mid", "right")}
+    MSG = 18  # first column of the instructions / input messages panel (R), right of the print area
+    MSG_COL = {"left": 18, "half": 18, "full": 18, "mid": 19, "wide": 19, "right": 20}
+
+    def __init__(self, book: EngWorkbook, ws: Worksheet, title: str, instructions: Sequence[str] = ()) -> None:
+        self._instructions = instructions
+        super().__init__(book, ws, title)
+
+    def _header(self, title: str, subtitle: str) -> None:
+        ws, n = self.ws, self.NCOLS + 1  # n = last content column (M)
+        self._inputs: dict[int, list[int]] = {}
+        ws.cell(1, 2, '=meta_std&"   ·   "&meta_org').style = "ec_source"
+        ws.cell(1, n, fx('="sheet "&SHEET()&" / "&SHEETS()')).style = "ec_source"
+        ws.cell(1, n).alignment = Alignment(horizontal="right")
+        iso = 'YEAR(meta_date)&"-"&RIGHT("0"&MONTH(meta_date),2)&"-"&RIGHT("0"&DAY(meta_date),2)'
+        job = (  # (row, label col, label, value col, formula)
+            (2, 2, "Project", 3, 'meta_project&""'), (3, 2, "Client", 3, 'meta_client&""'),
+            (4, 2, "Location", 3, 'meta_subject&""'), (5, 2, "Title", 3, 'meta_title&""'),
+            (3, 9, "Made by", 10, 'meta_author&""'), (3, 13, "Date", 14, f'IF(ISNUMBER(meta_date),{iso},meta_date&"")'),
+            (4, 9, "Checked", 10, 'meta_checker&""'), (4, 13, "Revision", 14, 'meta_rev&""'),
+            (5, 9, "Job no.", 10, 'meta_job&""'), (5, 13, "Page", 14, 'SHEET()&""'),
+        )
+        for r, lc, label, vc, f in job:
+            ws.cell(r, lc, label).style = "ec_job_label"
+            ws.cell(r, vc, fx("=" + f)).style = "ec_job"
+        org = ws.cell(2, 9, '=meta_org&""')
+        org.font = _font(DOMAIN_ACCENT[self.book.meta.domain], size=11, bold=True)
+        for r in range(2, 6):  # job box: thin frame, vertical line between project and office part
+            for c in range(2, n + 1):
+                ws.cell(r, c).border = Border(top=_side(C.NAVY) if r == 2 else None,
+                                              bottom=_side(C.NAVY) if r == 5 else _side("D9D9D9"),
+                                              left=_side(C.NAVY) if c in (2, 9) else None,
+                                              right=_side(C.NAVY) if c == n else None)
+        ws.cell(7, 2, title.upper()).font = _font(size=14, bold=True)
+        st = ws.cell(7, 12, "STATUS")
+        st.style = "ec_section_k"
+        st.alignment = Alignment(horizontal="right", vertical="center")
+        for c in range(13, n + 1):
+            ws.cell(7, c).style = "ec_rep_status"
+        ws.cell(7, 13, _banner_formula(short=True))
+        _status_rules(ws, f"M7:{get_column_letter(n)}7", "$M$7")
+        ws.row_dimensions[7].height = 24
+        self._next = {z: 9 for z in self._next}
+        # operating instructions + input messages, right of the print area
+        ws.column_dimensions[get_column_letter(self.MSG - 1)].width = 2
+        for col in range(self.MSG, self.MSG + 3):
+            ws.column_dimensions[get_column_letter(col)].width = 30
+        ws.sheet_format.defaultRowHeight = 13.5  # dense rows: more of the calculation on one screen / page
+        ws.sheet_format.customHeight = True
+        ws.sheet_view.zoomScale = 90
+        ws.cell(2, self.MSG, "OPERATING INSTRUCTIONS").style = "ec_section_k"
+        lines = ("Enter data in blue underlined cells only.",
+                 f"{FAIL} message next to an input = value out of range.", *self._instructions)
+        for k, line in enumerate(lines):
+            ws.cell(3 + k, self.MSG, line).style = "ec_rel_k"
+        ws.cell(8, self.MSG, "INPUT MESSAGES").style = "ec_section_k"
+
+    def section(self, title: str, *, at: Place = "full", unit: str = "") -> None:
+        """Red heading in capitals, no fill: ``DIMENSIONS (mm)``."""
+        r, c0, _ = self._at(at)
+        if r > 9:
+            r += 1
+        self.ws.cell(r, c0, title.upper() + (f" ({unit})" if unit else "")).style = "ec_section_k"
+        self._done(at, r + 1, gap=0)
+
+    def _row(self, at: Place, label: str, symbol: str, value: Scalar, unit: str, style: str,
+             fmt: str) -> tuple[int, Cell]:
+        r, c0, c1 = self._at(at)
+        lab = self.ws.cell(r, c1 - 2, f"{label}  {symbol} =" if symbol else f"{label} =")
+        lab.style = "ec_label_k"  # right aligned: overflows to the left over the empty label columns
+        cell = self.ws.cell(r, c1 - 1, _val(value))
+        cell.style = style
+        cell.number_format = fmt
+        self.ws.cell(r, c1, unit).style = "ec_unit"
+        self.ws.cell(r, c1).border = Border()
+        self._done(at, r + 1, gap=0)
+        return r, cell
+
+    def input(self, key: str, label: str, symbol: str, value: Scalar, unit: str, *, lo: float | None = None,
+              hi: float | None = None, choices: str | None = None, fmt: str = "0.00", at: Place = "left") -> Cell:
+        """Blue underlined input, validated; out of range → red value + message right of the page."""
+        r, cell = self._row(at, label, symbol, value, unit, "ec_input_k",
+                            "@" if choices and isinstance(value, str) else fmt)
+        ref = f"${cell.column_letter}{r}"
+        dv, status, hint = _bounded(self.book, key, f"{label} {symbol}".strip(), unit, lo=lo, hi=hi,
+                                    choices=choices, ref=ref, short=True)
+        self.ws.add_data_validation(dv)
+        dv.add(cell.coordinate)
+        mc = self.MSG_COL[at]
+        msg = f"{FAIL} {label} {symbol} – allowed {hint}".replace('"', '""')
+        m = self.ws.cell(r, mc, f'=IF(LEFT({status[1:]},1)="{FAIL}","{msg}","")')
+        m.font = _font(C.FAIL_FONT, size=9, bold=True)
+        self.ws.conditional_formatting.add(cell.coordinate, FormulaRule(
+            formula=[f'LEFT(${get_column_letter(mc)}{r},1)="{FAIL}"'], fill=_fill(C.FAIL_FILL),
+            font=Font(color=C.FAIL_FONT, bold=True)))
+        self.book.define(key, self.ws, cell.coordinate)
+        self._inputs.setdefault(mc, []).append(r)
+        return cell
+
+    def value(self, label: str, symbol: str, formula: str, unit: str, *, fmt: str = "0.00",
+              at: Place = "left", key: str | None = None, result: bool = False) -> Cell:
+        """Calculated or catalogue value, black (`result` = key result, bold with orange frame)."""
+        _, cell = self._row(at, label, symbol, fx(formula if formula.startswith("=") else "=" + formula),
+                            unit, "ec_value_k", fmt)
+        if result:
+            cell.font = _font(bold=True)
+            cell.border = _box(C.RESULT_EDGE, "medium")
+        if key:
+            self.book.define(key, self.ws, cell.coordinate)
+        return cell
+
+    def checks(self, *, at: Place = "full", title: str = "Calculation and checks") -> tuple[int, int]:  # type: ignore[override]
+        """check | effect vs resistance with numbers | η | √ | relation (symbol) in italics."""
+        if title:
+            self.section(title, at=at)
+        r, c0, c1 = self._at(at)
+        ws = self.ws
+        for c, h in ((c0, "check"), (c0 + 4, "effect vs resistance"), (c1 - 3, "η"), (c1 - 2, "√"), (c1 - 1, "relation")):
+            ws.cell(r, c, h).font = _font(size=9, bold=True, italic=True)
+        for c in range(c0, c1 + 1):
+            ws.cell(r, c).border = Border(top=_side(C.TEXT), bottom=_side(C.TEXT))
+        r += 1
+        first = r
+        for rec in self.book.checks:
+            q = quote_sheetname(rec.sheet)
+            ws.cell(r, c0, rec.label).font = _font(size=9, bold=rec.numeric)
+            ws.cell(r, c0 + 4, f'={q}!$G${rec.row}&""' if rec.numeric else f'={q}!$I${rec.row}&""').font = _font(size=9)
+            e = ws.cell(r, c1 - 3, f"={q}!$E${rec.row}" if rec.numeric else f'="{NA}"')
+            e.number_format = "0.00"
+            e.font = _font(bold=True)
+            e.alignment = Alignment(horizontal="center")
+            s = ws.cell(r, c1 - 2, f"=LEFT({q}!$I${rec.row},1)")
+            s.style = "ec_status"
+            s.border = Border()
+            ws.cell(r, c1 - 1, rec.symbol or "condition").style = "ec_rel_k"
+            r += 1
+        last = max(r - 1, first)
+        a = get_column_letter(c1 - 2)
+        _status_rules(ws, f"{a}{first}:{a}{last}", f"${a}{first}")
+        self._done(at, r)
+        return first, last
+
+    def utilization_chart(self, *, at: Place = "right", width: float = 9.5, height: float = 5.5) -> None:
+        """η bars from the register, built at save. shortcut: one colour, no 100 % line — style K by hand if needed."""
+        r, c0, _ = self._at(at)
+        self.book._util_chart_requests.append((self.ws, f"{get_column_letter(c0)}{r}", width, height))
+        self._done(at, r + int(height / 0.53) + 1)
+
+    def close(self) -> None:
+        """A4 portrait, one page wide; registers the input message cells for the banner."""
+        for col, rows in self._inputs.items():
+            self.book.input_spans.append((self.ws.title, min(rows), max(rows), get_column_letter(col)))
+        last = max(self._next.values())
+        _page_setup(self.ws, f"A1:{get_column_letter(self.NCOLS + 2)}{last}", title_rows=None)
+        self.ws.page_setup.fitToHeight = 1  # the whole sheet on one A4: fill it, do not spill
+        m = self.ws.page_margins
+        m.left = m.right = m.top = m.bottom = 0.25
+        self.ws.freeze_panes = "A8"
 
 
 # --------------------------------------------------------------------------- #

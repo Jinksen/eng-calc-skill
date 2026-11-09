@@ -33,3 +33,4 @@ build it in the language of this skill.
 | P26 | **LAMBDA as a named function** (`=ms(M15)`) | repeated conversion / relation | Name Manager, description in the README (365) |
 | P27 | **Automatic drawing scale** | drawing that must fit the sheet for any input | largest standard scale (ISO 5455) ≤ the scale that fits: `INDEX(db_scale_f,MATCH(need,db_scale_f,1))`, scale into the title block |
 | P28 | **Live hatching** | section views | `DataSheet.hatch()` — one series per rectangle, moves along visible edges |
+| P29 | **Live nomogram** (three scales, a line through two inputs reads the third) | showing a relation over its whole range, README / overview | [dashboard-widgets.md](dashboard-widgets.md) §6: scales as XY series in `91_ChartData`, isopleth from `in_*`; the cell value stays authoritative |

@@ -67,7 +67,33 @@ saves** — never open a workbook with shapes through openpyxl. Draw schematics 
 (`drawing_chart`) or PNG (matplotlib), the procedure as a table of steps with hyperlinks; add
 shapes in path A or with a macro.
 
-## 6. Copyright and branding
+## 6. Live nomogram (alignment chart)
+
+A picture that *is* the calculation: three parallel scales, a straight line through the two
+known values reads the third. Good for a README / overview to show how a relation behaves
+over its whole range, and for a quick sanity read on site. The cell value stays
+authoritative — a nomogram is limited by reading accuracy, never a calculation step.
+
+Works for any relation that can be written as `f1(u) + f2(v) = f3(w)`; a product or
+quotient becomes a sum with `LOG10` (`U = R·I` → `log U = log R + log I`).
+
+| Scale | x position | y of a tick with value t |
+|---|---|---|
+| u (left) | 0 | `m1·f1(t)` |
+| v (right) | `d` | `m2·f2(t)` |
+| w (middle) | `d·m1/(m1+m2)` | `m1·m2/(m1+m2)·f3(t)` |
+
+Moduli `m1`, `m2` (`cfg_nomo_m1/m2`) are chosen so both outer scales span the same height
+over the input ranges `min–max` of their `in_*`; `d` is the chart width.
+
+Build: tick values as a block in `91_ChartData` (one per scale, x and y as formulas of the
+table above), each scale an XY series — line through the ticks plus markers with labels
+*Value From Cells*; the **isopleth** is a 2-point series from `in_u` and `in_v`, its
+crossing with the middle scale is a 1-point series at `calc_w`. Hidden axes, equal range,
+no gridlines. Done when changing `in_u` moves the line and the crossing reads the same value
+as `calc_w` (log scales: within one minor tick).
+
+## 7. Copyright and branding
 
 A look copied from someone else's template (logo, © text, watermark) does not belong in the
 workbook; use `meta_org`.

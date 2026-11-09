@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.8.0 — 2026-11-09
+
+- **Templates catalogue** `reference/templates.md`: seven whole-workbook templates (T1 design-office
+  sheet in the TCC / RCC style, T2 calculation notebook with a side catalogue, T3 calculator + pad,
+  T4 pad + report, T5 part with a drawing, T6 variants, T7 catalogue) and the parts every
+  template must have (job box, status, input convention and messages, instructions, checks,
+  assumptions, sources and revisions, live sketch, print setup).
+- **`FormSheet`** in `engcalc.py` — compact check sheet (style K, ticket 12): job box, STATUS top
+  right, red section headings, blue underlined inputs in two blocks, input messages and
+  OPERATING INSTRUCTIONS right of the print area, check table with relations, assumptions.
+  `Meta` gains `client` and `job_no` (`meta_client`, `meta_job`).
+- Reference build `scripts/example_pile_cap.py` (template T1): two-pile cap, truss method, EN 1992-1-1.
+- **Use the whole page**: `FormSheet` on a dense 15-column grid with three blocks per row
+  (`left` · `mid` · `right`, plus `half` / `wide`), 13.5 pt rows, fitted to one A4 with 0.25 in
+  margins; rules for filling the page in `templates.md`.
+
 ## 0.7.0 — 2026-11-09
 
 - **Restraint lint** in `verify.py`: colours outside the palette (fill, font, border, sheet

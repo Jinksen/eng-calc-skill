@@ -93,7 +93,7 @@ ask, the defaults to offer, and where each answer lives in the workbook.
 | **Requirements** → spec §1 | ID, requirement, **origin** (standard / contract / client spec / internal rule), limit; every requirement gets a check |
 | **Normative basis** → spec §2 | standard + **edition** + national annex + options chosen (NDPs, method alternatives) |
 | **Safety concept** → spec §3 | partial factors / global safety factor / rating with derating / acceptance criterion; class; `cfg_eta_warn` |
-| Inputs | symbol, description, SI unit, **min–max** or **list**, source and **status** (confirmed / measured / standard / assumed → spec §6) |
+| Inputs | symbol, description, SI unit, **min–max** or **list**, source and **status** (confirmed / measured / standard / assumed → spec §6); grouped as **geometry · material · actions · supports / boundary conditions** — a model needs all four, and the sketch shows supports and loads, not only the part |
 | **Cases** → spec §4 | load cases, operating states or scenarios, combination rule; a single case is stated as such |
 | **Conventions** → spec §5 | axes and origin, positive directions, electrical reference system, angle units |
 | Tolerances (optional) → spec §7 | nominal or unfavourable values; input tolerances, measurement uncertainty |
@@ -105,6 +105,7 @@ ask, the defaults to offer, and where each answer lives in the workbook.
 | Test data (optional) → spec §8 | when measurements are judged: instruments with calibration, test conditions, **decision rule** |
 | Reference case | a known result (worked example from a standard / textbook, hand calculation) |
 | Target platform | Excel 365 / 2021 / 2016 / LibreOffice — decides which functions you may use |
+| **Template** | whole-workbook model T1–T7 ([reference/templates.md](reference/templates.md)); TCC / RCC look = T1 |
 | **Layout** | **the user chooses** — S one-screen calculator · M mosaic of pages · K compact check sheet · V variants in columns · P calc pad · R printable report ([reference/layouts.md](reference/layouts.md)) |
 
 Ask in groups ([reference/specification.md](reference/specification.md) "How to ask"), not
@@ -249,4 +250,6 @@ assumptions go into your answer.
 - `reference/layouts.md` — layout catalogue with previews (S, M, K, V, P, R, D) — the user picks one
 - `reference/report-sheet.md` — printable calculation report / data sheet (style R, `ReportSheet`)
 - `reference/databases.md` — writing catalogues and registers as Excel tables, dropdowns (dependent, filtered), lookup functions, integrity conditions, entry forms, literature
+- `scripts/example_pile_cap.py` — reference build of template T1 (TCC / RCC design-office sheet, `FormSheet`): two-pile cap, EN 1992-1-1
+- `reference/templates.md` — catalogue of whole-workbook templates (T1–T7) and the parts every template must have
 - `reference/agent-workflow.md` — subagent roles on cheaper models (extractor, builder, checker, visual reviewer), file hand-overs, cost rules

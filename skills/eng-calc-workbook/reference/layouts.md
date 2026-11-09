@@ -14,7 +14,7 @@ layouts can be combined in one workbook, because they only read the same names.
 |---|---|---|---|---|---|
 | **S** | **One-screen calculator** | inputs ✔/✘ · sketch · diagrams · η and status | design by trial: change a value, see everything react | 1 page landscape | `ScreenSheet` |
 | **M** | **Mosaic of pages** (TCC wide sheet) | several A4 calc blocks side by side + plan views | one element with many parts (pile cap, foundation, joint) | each block = 1 A4 page | path A (by hand) |
-| **K** | **Compact check sheet** | 1 A4 page: sketch with loads, LC table, checks, assumptions | standard member check, handover to a checker | 1 page portrait | path A |
+| **K** | **Compact check sheet** | 1 A4 page: sketch with loads, LC table, checks, assumptions | standard member check, handover to a checker | 1 page portrait | `FormSheet` |
 | **V** | **Variants in columns** | the same rows for 3–10 variants next to each other | comparing designs, sensitivity, choosing a size | landscape | `CalcSheet` + pattern P18 |
 | **P** | **Calc pad** | 1 quantity per row, top to bottom | long derivations, design methods, review | portrait, many pages | `CalcSheet` |
 | **R** | **Printable report** | procedure with substituted values, tables, signatures | appendix to a technical report, PDF | portrait | `ReportSheet` |

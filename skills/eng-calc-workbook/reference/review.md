@@ -9,7 +9,10 @@ in place (path A), rebuild (B) or split into tickets (D).
 2. Where are the inputs? (scattered through the calculation = finding)
 3. Go through every calculation formula (Ctrl+` / openpyxl) and look for the patterns below.
 4. Independently recompute at least one key result; state the value and the deviation.
-5. Try the edges: zero, a negative value, an input beyond a sensible limit — what does the workbook do?
+5. Dimension check: Excel does not carry units, the unit column is only a label. For every
+   key relation derive the unit of the result from the units of its inputs and compare it
+   with the unit column; every conversion factor is a named constant, not a bare number.
+6. Try the edges: zero, a negative value, an input beyond a sensible limit — what does the workbook do?
 6. Path B available → `verify.py` (the lint finds magic numbers, volatile functions, inputs without validation).
 
 ## Severity

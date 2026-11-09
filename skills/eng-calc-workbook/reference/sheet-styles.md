@@ -8,8 +8,8 @@ They differ in layout and density. A third, **R — printable report**, only rea
 |---|---|---|
 | Model | TCC / The Concrete Centre sheets, hand-written structural calculation | step-by-step report |
 | When | main check sheet, 1 A4 page per member | long derivations, design methods (machine, winding), review |
-| Density | 2 quantities per row, load case tables | 1 quantity per row |
-| `engcalc.py` | not yet (ticket 12) — path A | `CalcSheet` |
+| Density | 3 blocks per row, whole A4 filled ([templates.md](templates.md) "Use the whole page") | 1 quantity per row |
+| `engcalc.py` | `FormSheet` (`example_pile_cap.py`) | `CalcSheet` |
 
 Combination: sheet K as the summary check, sheet P as the record of intermediate steps on another sheet.
 

@@ -39,6 +39,7 @@ Bolt group → live sketch of the pattern (XY points) + resultant.
 | RC section (EN 1992-1-1) | M_Ed ≤ M_Rd; V_Ed ≤ V_Rd; A_s,min ≤ A_s ≤ A_s,max; crack width | N–M interaction diagram (capacity envelope + effect point) |
 | Slab (continuous / discontinuous edges) | span and support moments, reactions | edge support type as a selection |
 | Truss | member forces (tension / compression), buckling of compression members | pinned joints |
+| Section properties (calculated or from a catalogue) | — (inputs of the member check, not a check themselves) | keep them apart, each with its own symbol and unit: A [m²], I_y / I_z [m⁴], W_el and W_pl [m³] (class decides which one is used), I_t torsion constant [m⁴] ≠ polar moment I_p except for a circle, W_t [m³]; thin-walled open sections also I_w [m⁶] |
 | Actions (EN 1990/1991) | combinations 6.10 / 6.10a,b; reduction of imposed loads | category of use |
 
 Sections and materials always as a `9x_` database with a selection (IPE pattern in the reference build).

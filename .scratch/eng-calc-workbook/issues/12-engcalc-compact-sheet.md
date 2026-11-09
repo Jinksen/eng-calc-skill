@@ -4,7 +4,7 @@
 
 **Blocked by:** Nothing — can start now.
 
-**Status:** ready-for-agent
+**Status:** done (0.8.0) — `FormSheet`, reference `example_pile_cap.py`; open: colours by point and 100 % line in the utilisation chart
 
 **Reference:** artboard "Target look – compact check sheet (TCC style)" on the canvas *Bearing calculation – sheet design*; `example_bearing.py` (ticket 10) as the first use.
 

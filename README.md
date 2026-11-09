@@ -253,9 +253,10 @@ Full API in [`python-engcalc.md`](skills/eng-calc-workbook/reference/python-engc
 |---|---|
 | [`example_flange.py`](skills/eng-calc-workbook/scripts/example_flange.py) | part with fits and tolerances, live drawing, GD&T, title block |
 | [`example_ipe_beam.py`](skills/eng-calc-workbook/scripts/example_ipe_beam.py) | structural check, live sketch, diagrams, printable report; `--screen` builds the one-screen calculator |
+| [`example_pile_cap.py`](skills/eng-calc-workbook/scripts/example_pile_cap.py) | template T1: TCC / RCC design-office sheet (job box, STATUS, blue underlined inputs, plan view, checks); catalogue of templates in [`templates.md`](skills/eng-calc-workbook/reference/templates.md) |
 | [`example_udf.bas`](skills/eng-calc-workbook/scripts/example_udf.bas) | VBA module pattern: a UDF with units in the header and a `Test_` macro that raises on a mismatch |
 
-Both Python builds pass `verify.py` with zero errors and zero warnings in CI. The VBA example is
+All Python builds pass `verify.py` with zero errors and zero warnings in CI. The VBA example is
 run locally with `vba_run.ps1` (CI has no Excel):
 
 ```powershell

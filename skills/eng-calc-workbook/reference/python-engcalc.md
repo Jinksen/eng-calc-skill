@@ -71,6 +71,16 @@ rp.table(cols, rows, at="left", total={"M": "MAX"});  rp.chart(chart);  rp.check
 rp.close()
 ```
 
+### Compact check sheet (style K, template T1 — see [templates.md](templates.md), `example_pile_cap.py`)
+
+```python
+fm = book.form_sheet("10_Main", "Two-pile cap design", "…", instructions=["…"])   # job box, STATUS, instructions panel
+fm.section("Dimensions", unit="mm", at="left");  fm.input("in_s", "Pile spacing", "s", 1800, "mm", lo=900, hi=3600, at="left")
+fm.value("Tie force", "T", "calc_T", "kN", fmt="0", at="right")                     # reads the calc pad
+# zones left | mid | right (three blocks per row), half = left+mid, wide = mid+right, full — fill the page
+fm.chart(…, at="half");  fm.utilization_chart(at="right");  fm.checks();  fm.table(…);  fm.notes([…]);  fm.close()
+```
+
 ### One-screen calculator (layout S, see [layouts.md](layouts.md), `example_ipe_beam.py --screen`)
 
 ```python
