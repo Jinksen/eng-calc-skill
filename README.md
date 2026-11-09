@@ -78,7 +78,7 @@ quantities instead of cell addresses, assumptions that keep the banner amber unt
 
 ### 🔌 Works where you work
 Live in **Claude in Excel**, as a generated file in **claude.ai** or **Claude Code**, and the
-files open in **LibreOffice** too.
+files open in **LibreOffice** too. Macros are optional — see [Macros (VBA)](#macros-vba).
 
 </td>
 </tr>
@@ -148,6 +148,33 @@ sensible defaults:
 Whatever you cannot answer yet is recorded as an assumption to confirm, never quietly
 guessed. Details in [`specification.md`](skills/eng-calc-workbook/reference/specification.md).
 
+## Macros (VBA)
+
+Every workbook works **without macros**: inputs, checks and the banner are formulas. VBA is an
+optional extra for what a formula cannot do — a custom function for a complex algorithm, an
+export, real shapes placed from coordinates.
+
+| Where | What Claude does with VBA |
+|---|---|
+| **Claude in Excel**, Excel for the web | nothing — they do not run macros; Claude uses formulas, `LAMBDA` and lists instead |
+| **claude.ai**, Claude Code without desktop Excel | writes a `.bas` module with its own test; you import it (Alt+F11 → File → Import) |
+| **Claude Code on Windows with desktop Excel** | also imports the module, saves an `.xlsm` and runs the tests itself with [`vba_run.ps1`](skills/eng-calc-workbook/scripts/vba_run.ps1) |
+
+**Before you let Claude run macros**, know what that means:
+
+- You turn on *Trust Center → Macro Settings → Trust access to the VBA project object model*
+  once, yourself — Claude never changes it. While it is on, any program running as you can read
+  and change VBA in your workbooks. You can switch it off again afterwards.
+- Macros run with your rights. Claude runs only code it wrote in the session or that you gave
+  it; the workbook is opened with events off, so a foreign `Workbook_Open` does not fire.
+- Windows and desktop Excel only (COM). Not on Mac, in the browser or in CI.
+- The `.xlsm` is unsigned, so on another PC its macros are blocked until the file is trusted.
+  The plain `.xlsx` stays the main result; your original file is never overwritten.
+- A macro that opens a dialog (`MsgBox`, a form) would wait for a click nobody sees, so tests
+  never show dialogs.
+
+Rules and details: [`vba.md`](skills/eng-calc-workbook/reference/vba.md).
+
 ## Built for
 
 | | |
@@ -216,7 +243,8 @@ book.save("out/shaft.xlsx")        # register, banner, legend, README, protectio
 ```
 
 Also included: a drawing toolkit (`drawing_chart`, live hatching, GD&T frames, title blocks),
-a printable report sheet, and `verify.py` (LibreOffice recalculation, lint, PDF / PNG render).
+a printable report sheet, `verify.py` (LibreOffice recalculation, lint, PDF / PNG render) and
+`vba_run.ps1` (Windows + desktop Excel: import a `.bas`, run its tests).
 Full API in [`python-engcalc.md`](skills/eng-calc-workbook/reference/python-engcalc.md).
 
 ### Reference builds
@@ -225,8 +253,14 @@ Full API in [`python-engcalc.md`](skills/eng-calc-workbook/reference/python-engc
 |---|---|
 | [`example_flange.py`](skills/eng-calc-workbook/scripts/example_flange.py) | part with fits and tolerances, live drawing, GD&T, title block |
 | [`example_ipe_beam.py`](skills/eng-calc-workbook/scripts/example_ipe_beam.py) | structural check, live sketch, diagrams, printable report; `--screen` builds the one-screen calculator |
+| [`example_udf.bas`](skills/eng-calc-workbook/scripts/example_udf.bas) | VBA module pattern: a UDF with units in the header and a `Test_` macro that raises on a mismatch |
 
-Both build and pass `verify.py` with zero errors and zero warnings in CI.
+Both Python builds pass `verify.py` with zero errors and zero warnings in CI. The VBA example is
+run locally with `vba_run.ps1` (CI has no Excel):
+
+```powershell
+powershell -NoProfile -File skills/eng-calc-workbook/scripts/vba_run.ps1 book.xlsx -Modules skills/eng-calc-workbook/scripts/example_udf.bas -Run Test_L10h
+```
 
 ### Repository layout
 
@@ -235,7 +269,7 @@ Both build and pass `verify.py` with zero errors and zero warnings in CI.
 skills/eng-calc-workbook/
   SKILL.md                     what the agent follows
   reference/                   visual language, conditions, drawings, reports, Excel toolbox, …
-  scripts/                     engcalc.py · example_*.py · verify.py
+  scripts/                     engcalc.py · example_*.py · verify.py · test_verify_slop.py · vba_run.ps1 · example_udf.bas
 docs/images/                   screenshots
 .scratch/eng-calc-workbook/issues/   roadmap as small, self-contained tickets
 .github/workflows/verify.yml         CI: build every example and verify it
@@ -249,7 +283,7 @@ docs/images/                   screenshots
 - ⚡ More electrical examples — cable sizing, phasor diagrams
 - ⚙️ More mechanical examples — bolt groups, bearings
 - 🔁 Iterative solvers and variant comparison without macros
-- 📦 One-click releases with ready-to-upload ZIPs
+- 📦 Releases built automatically from a version tag (today the ZIP and sample workbooks are attached by hand)
 
 Each item is a small ticket in [`.scratch/eng-calc-workbook/issues`](.scratch/eng-calc-workbook/issues) —
 pick one up. What changed in each version: [CHANGELOG.md](CHANGELOG.md).

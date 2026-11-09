@@ -66,6 +66,10 @@ emphasis, never colour a cell to separate groups (use a thin line or an empty ro
 no chart border, no shadow, light grey major gridlines on the value axis only, legend only with
 more than one series, data labels only on the governing point, title = what and in which units.
 
+`verify.py` flags what a regex can see (foreign colours, gradients, emoji, marketing words,
+`!`, numbers as text with a unit, 3D charts, series colours outside the palette, legend on one
+series, more than 4 decimals, a sheet that is mostly filled); the visual review below covers the rest.
+
 **Self-check before handing over** (look at the rendered PNG / the sheet at 100 %): Does it
 print well in black and white? Can a colleague tell input from result without a legend? For each
 coloured or framed element: would removing it lose information? If not, remove it.

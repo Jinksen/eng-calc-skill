@@ -76,6 +76,7 @@ follow *Restraint* in visual-language.md so the result looks like a design offic
 | You have a shell + Python (claude.ai, Claude Code) and the output is a file | **B – generated file** → [reference/python-engcalc.md](reference/python-engcalc.md) |
 | The user brought an existing workbook for review | **C – review**: step 1, then [reference/review.md](reference/review.md) |
 | More than ~3 calculation sheets or more checks than fit into one session | **D – tickets** → [reference/tickets.md](reference/tickets.md), then A/B ticket by ticket |
+| A formula is not enough (UDF, export, shapes from coordinates) and the target is desktop Excel | macros as an extra to A/B → [reference/vba.md](reference/vba.md); on Windows with desktop Excel run the tests with `scripts/vba_run.ps1` |
 | Path D or ≥ 2 catalogues to transcribe, and you can start subagents | split the work by role and model tier → [reference/agent-workflow.md](reference/agent-workflow.md) |
 
 Done when the path is chosen and its reference file is loaded.
@@ -237,8 +238,10 @@ assumptions go into your answer.
 - `scripts/engcalc.py` — library (path B)
 - `scripts/example_ipe_beam.py` — reference build: IPE beam check (EN 1993-1-1) with a printable report `70_Report`; `--screen` builds the one-screen calculator `02_Calculator` (layout S)
 - `scripts/example_flange.py` — reference build: flange with ISO 286 fit, ISO 2768, tolerance chain and a live drawing
-- `scripts/verify.py` — LibreOffice recalculation, lint, render
-- `reference/vba.md` — macros for desktop Excel only (Claude in Excel does not run VBA)
+- `scripts/verify.py` — LibreOffice recalculation, lint (incl. Restraint signs), render; `scripts/test_verify_slop.py` its self-check
+- `scripts/vba_run.ps1` — Windows + desktop Excel: import `.bas`, save `.xlsm`, run `Test_*` macros (needs the user to allow VBA project access)
+- `scripts/example_udf.bas` — pattern for a UDF module with a self-test (`L10h`, ISO 281)
+- `reference/vba.md` — macros for desktop Excel only (Claude in Excel does not run VBA): rules, running them, risks
 - `reference/patterns.md` — catalogue of patterns from reference workbooks (iteration, FDM grid, variants)
 - `reference/part-drawing.md` — parametric part drawing in Excel (outline, dimensions, tolerances, GD&T, title block)
 - `reference/dashboard-widgets.md` — controls, gauges, shapes, flowcharts

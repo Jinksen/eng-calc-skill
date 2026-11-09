@@ -1,6 +1,6 @@
 {
   "name": "eng-calc-workbook",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Engineering calculation workbooks in Excel (electrical, mechanical, civil): calc-pad layout, limit checks with utilisation η and ✔/▲/✘ status, check register, live sketches, parametric part drawings with tolerances and GD&T, interactive dashboards, verification. Works in Claude in Excel (native Excel only) and with a Python/openpyxl builder.",
   "author": {
     "name": "Jinksen"

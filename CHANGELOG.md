@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.7.0 — 2026-11-09
+
+- **Restraint lint** in `verify.py`: colours outside the palette (fill, font, border, sheet
+  tab; Office theme fills), gradient fills, emoji in text and sheet names, marketing words
+  (EN / CZ), exclamation marks, numbers typed as text with their unit, charts (3D, series
+  colour outside the palette, legend on one series), more than 4 decimals in a number format,
+  a sheet with over 60 % filled cells (data sheets `9x_` excluded). The palette is read from
+  `engcalc.py`, so a new token needs no edit in the lint. Self-check
+  `scripts/test_verify_slop.py` runs in CI.
+- **Running macros**: `scripts/vba_run.ps1` (Windows + desktop Excel, COM, no extra
+  dependency) imports `.bas` modules, saves an `.xlsm` beside the untouched `.xlsx`, runs the
+  `Test_*` macros and reports PASS / FAIL; exit 0 / 1 / 2 like `verify.py`. Needs the user to
+  allow access to the VBA project object model; the script never changes that setting.
+- `scripts/example_udf.bas`: UDF module pattern (`L10h`, ISO 281) with a self-test.
+- `reference/vba.md`: tests raise instead of `Debug.Assert` (it stops a hidden Excel),
+  `Attribute VB_Name` and CRLF required, section on running macros and its risks.
+- README: section *Macros (VBA)* — what Claude does with VBA in each environment and what
+  allowing it to run macros means; roadmap item on releases corrected.
+
 ## 0.6.0 — 2026-10-27
 
 - **Databases**: `reference/databases.md` — writing catalogues and registers as Excel tables
