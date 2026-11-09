@@ -15,6 +15,12 @@
 - **Use the whole page**: `FormSheet` on a dense 15-column grid with three blocks per row
   (`left` · `mid` · `right`, plus `half` / `wide`), 13.5 pt rows, fitted to one A4 with 0.25 in
   margins; rules for filling the page in `templates.md`.
+- **Live nomogram** (pattern P29, `dashboard-widgets.md` §6): three-scale alignment chart as XY
+  series with an isopleth from the inputs. Inputs grouped as geometry · material · actions ·
+  supports; section properties kept apart (A, I, W_el/W_pl, I_t, W_t) in `domains.md`;
+  dimension check step in `review.md`.
+- README: section *Templates* (T1–T7, whole-page visibility), screenshot of the T1 design-office
+  sheet, pile cap build command, nomogram and `FormSheet` in the library summary.
 
 ## 0.7.0 — 2026-11-09
 

@@ -95,6 +95,9 @@ files open in **LibreOffice** too. Macros are optional — see [Macros (VBA)](#m
 <td colspan="2"><img src="docs/images/ipe-calculator.png" alt="One-screen calculator"><br><sub><b>One-screen calculator</b> (layout S) — inputs with ✔/✘, sketch, M(x) and w(x), key result, η with data bars and the live banner on one page; a wrong value shows its consequence at once. The skill lets you pick the layout: S, mosaic of pages, compact check sheet, variants, calc pad or report</sub></td>
 </tr>
 <tr>
+<td colspan="2"><img src="docs/images/pile-cap-main.png" alt="Design-office sheet" width="560"><br><sub><b>Design-office sheet</b> (template T1, TCC / RCC style) — job box, STATUS, blue underlined inputs in three blocks, live plan view, utilisation, checks with relations, schedule and assumptions, the whole A4 used</sub></td>
+</tr>
+<tr>
 <td><img src="docs/images/ipe-report-p1.png" alt="Printable report"><br><sub><b>Printable report</b> — reads like a hand calculation, ready to attach to a technical report</sub></td>
 <td><img src="docs/images/ipe-overview.png" alt="Overview dashboard"><br><sub><b>Overview</b> — key numbers, live sketch, diagrams and how close each check is to its limit</sub></td>
 </tr>
@@ -124,6 +127,7 @@ files open in **LibreOffice** too. Macros are optional — see [Macros (VBA)](#m
 > *Size the cable for a 22 kW motor 80 m from the switchboard.*
 > *Draw this flange with tolerances and check the bolt pattern.*
 > *Make a test report for these measurements with a pass / fail summary.*
+> *Design a two-pile cap on one sheet, like the TCC spreadsheets.*
 > *Review this workbook and tell me what is wrong with it.*
 
 **3. Get a workbook** — Claude first agrees the specification with you, then builds the
@@ -147,6 +151,25 @@ sensible defaults:
 
 Whatever you cannot answer yet is recorded as an assumption to confirm, never quietly
 guessed. Details in [`specification.md`](skills/eng-calc-workbook/reference/specification.md).
+
+## Templates
+
+Pick what the finished workbook should look like — the same checks, names and banner sit
+underneath every one of them, so they can be combined.
+
+| | Template | Looks like |
+|---|---|---|
+| **T1** | Design-office sheet | the TCC / RCC design spreadsheets: job box, STATUS, three blocks per row, sketch, checks, assumptions — one full A4 |
+| **T2** | Calculation notebook with a side catalogue | numbered sections left, table of standard sizes, picture and a second method right (transformer, breaker, cable selection) |
+| **T3** | Calculator + calc pad | everything on one screen, every step traceable on the pad |
+| **T4** | Calc pad + printable report | appendix to a technical report |
+| **T5** | Part with a drawing | fits, tolerances, live drawing |
+| **T6** | Variant comparison | the same rows for several options side by side |
+| **T7** | Catalogue / register | Excel tables with dropdowns and lookups |
+
+Dense templates use the whole page — width and height — because what matters is that
+everything is **visible at once**. Rules and the parts every template must have:
+[`templates.md`](skills/eng-calc-workbook/reference/templates.md).
 
 ## Macros (VBA)
 
@@ -210,6 +233,7 @@ pip install openpyxl pillow matplotlib          # + LibreOffice and poppler-util
 python skills/eng-calc-workbook/scripts/example_flange.py out/example_flange.xlsx
 python skills/eng-calc-workbook/scripts/example_ipe_beam.py out/example_ipe_beam.xlsx
 python skills/eng-calc-workbook/scripts/example_ipe_beam.py out/beam_calculator.xlsx --screen
+python skills/eng-calc-workbook/scripts/example_pile_cap.py out/example_pile_cap.xlsx
 python skills/eng-calc-workbook/scripts/verify.py out/example_flange.xlsx --render out/render
 ```
 
@@ -243,7 +267,8 @@ book.save("out/shaft.xlsx")        # register, banner, legend, README, protectio
 ```
 
 Also included: a drawing toolkit (`drawing_chart`, live hatching, GD&T frames, title blocks),
-a printable report sheet, `verify.py` (LibreOffice recalculation, lint, PDF / PNG render) and
+a printable report sheet, a one-screen calculator, the design-office sheet `FormSheet`
+(template T1), live nomograms as XY charts (pattern P29), `verify.py` (LibreOffice recalculation, lint, PDF / PNG render) and
 `vba_run.ps1` (Windows + desktop Excel: import a `.bas`, run its tests).
 Full API in [`python-engcalc.md`](skills/eng-calc-workbook/reference/python-engcalc.md).
 
@@ -269,7 +294,7 @@ powershell -NoProfile -File skills/eng-calc-workbook/scripts/vba_run.ps1 book.xl
 .claude-plugin/                plugin.json, marketplace.json
 skills/eng-calc-workbook/
   SKILL.md                     what the agent follows
-  reference/                   visual language, conditions, drawings, reports, Excel toolbox, …
+  reference/                   templates, visual language, conditions, drawings, reports, Excel toolbox, …
   scripts/                     engcalc.py · example_*.py · verify.py · test_verify_slop.py · vba_run.ps1 · example_udf.bas
 docs/images/                   screenshots
 .scratch/eng-calc-workbook/issues/   roadmap as small, self-contained tickets
