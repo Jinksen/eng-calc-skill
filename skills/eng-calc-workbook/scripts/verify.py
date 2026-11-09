@@ -35,6 +35,16 @@ INPUT_STYLES = {"ec_input", "ec_select"}
 TEXT_COL = 7
 GENERATED_SHEETS = {"00_README", "80_Checks"}  # built by engcalc itself; column G "Relation / condition" documents coefficients
 
+# Restraint (visual-language.md): the palette is every colour engcalc itself writes, so a new token there needs no edit here
+PALETTE = set(re.findall(r'"([0-9A-F]{6})"', (Path(__file__).with_name("engcalc.py")).read_text(encoding="utf-8").upper()))
+EMOJI = re.compile(r"[\U0001F000-\U0001FAFF☀-✓✕-✗✙-➿⬀-⯿️]")  # keeps ✔ ✘ ▲ –
+HYPE = re.compile(r"\b(smart|powerful|ultimate|seamless\w*|magic\w*|revolution\w*|supercharg\w*|unlock|unleash\w*|effortless\w*"
+                  r"|game[- ]chang\w*|ai[- ]powered|next[- ]gen\w*|cutting[- ]edge|this tool|helps you"
+                  r"|chytr\w*|revoluční\w*|výkonný nástroj|bezkonkurenční\w*)\b", re.I)
+SHOUT = re.compile(r"!(\s|$)")
+UNIT_TEXT = re.compile(r"^\s*[-+−]?\d+(?:[.,]\d+)?\s*(?:[kMGmµ]?(?:N|Pa|W|VA|V|A|Hz|Ω|J)(?:·?m)?|[kcmµ]?m[²³23]?"
+                       r"|kg|t|s|ms|min|h|rpm|°C?|K|%|kVAr|kWh|N/mm²?)\s*$")
+
 
 @dataclass
 class Finding:
@@ -70,10 +80,93 @@ def render(src: Path, out_dir: Path, workdir: Path) -> list[Path]:
     return sorted(out_dir.glob(f"{src.stem}*.png"))
 
 
+def _foreign(color: object) -> str | None:
+    """Hex of a colour outside the palette, 'theme' for an Office theme colour, None when fine."""
+    if color is None:
+        return None
+    if color.type == "theme":
+        return "theme"
+    rgb = color.rgb if color.type == "rgb" and isinstance(color.rgb, str) else None
+    return rgb[-6:].upper() if rgb and rgb[-6:].upper() not in PALETTE else None
+
+
+def slop(ws: object) -> list[Finding]:
+    """Restraint signs a regex can see: foreign colours, emoji, marketing copy, numbers typed as text with a unit."""
+    out: list[Finding] = []
+    if EMOJI.search(ws.title):
+        out.append(Finding("warn", ws.title, "emoji in sheet name"))
+    tab = ws.sheet_properties.tabColor
+    if tab is not None and (bad := _foreign(tab)):
+        out.append(Finding("warn", ws.title, f"tab colour {bad} outside the palette"))
+    for row in ws.iter_rows():
+        for c in row:
+            where = f"{ws.title}!{c.coordinate}"
+            fill = c.fill.fgColor if c.fill is not None and c.fill.fill_type == "solid" else None
+            if c.fill is not None and c.fill.fill_type not in (None, "solid"):
+                out.append(Finding("warn", where, f"gradient fill ({c.fill.fill_type}) — flat fills only"))
+            # theme colours on fonts / borders are just Excel's default text colour, only fills count
+            for kind, col in (("fill", fill), ("font", c.font.color if c.font else None),
+                              *(("border", getattr(getattr(c.border, s), "color", None)) for s in ("left", "right", "top", "bottom"))):
+                bad = _foreign(col)
+                if bad and (bad != "theme" or kind == "fill"):
+                    out.append(Finding("warn", where, f"{kind} colour {bad} outside the palette"))
+                    break
+            v = c.value
+            if not isinstance(v, str) or v.startswith("="):
+                continue
+            if EMOJI.search(v):
+                out.append(Finding("warn", where, f"emoji in text: {v[:40]!r}"))
+            if m := HYPE.search(v):
+                out.append(Finding("warn", where, f"marketing word {m.group(0)!r} — say source, assumption or limit"))
+            if SHOUT.search(v):
+                out.append(Finding("warn", where, "exclamation mark in text"))
+            if UNIT_TEXT.match(v):
+                out.append(Finding("warn", where, f"number typed as text with its unit: {v!r} — value and unit in own columns"))
+    return out
+
+
+DATA_SHEET = re.compile(r"^9\d_")  # databases and chart data are tables, not a page to look at
+DECIMALS = re.compile(r"0\.(0+)")
+
+
+def slop_layout(ws: object) -> list[Finding]:
+    """Charts (palette, 3D, single-series legend), false precision, fill budget."""
+    out: list[Finding] = []
+    for ch in ws._charts:
+        name = f"{ws.title} chart"
+        if "3D" in type(ch).__name__:
+            out.append(Finding("warn", name, "3D chart"))
+        if ch.legend is not None and len(ch.series) == 1:
+            out.append(Finding("warn", name, "legend on a single series"))
+        for s in ch.series:
+            gp = s.graphicalProperties
+            for fc in (gp.line.solidFill if gp and gp.line else None, gp.solidFill if gp else None):
+                hexv = fc.srgbClr if fc is not None and isinstance(fc.srgbClr, str) else None
+                if hexv and hexv.upper() not in PALETTE:
+                    out.append(Finding("warn", name, f"series colour {hexv} outside the palette"))
+    if DATA_SHEET.match(ws.title):
+        return out
+    cells = filled = 0
+    for row in ws.iter_rows():
+        for c in row:
+            if c.value in (None, ""):
+                continue
+            cells += 1
+            if c.fill.fill_type == "solid" and (c.fill.fgColor.rgb or "")[-6:] != "FFFFFF":
+                filled += 1
+            m = DECIMALS.findall(c.number_format.split(";")[0]) if isinstance(c.number_format, str) else []
+            if m and len(m[0]) > 4:
+                out.append(Finding("warn", f"{ws.title}!{c.coordinate}", f"{len(m[0])} decimals in {c.number_format!r} — false precision"))
+    if cells >= 50 and filled / cells > 0.6:
+        out.append(Finding("warn", ws.title, f"{filled / cells:.0%} of cells filled — colour only on cells that mean something"))
+    return out
+
+
 def lint(path: Path) -> list[Finding]:
     wb = load_workbook(path)
     out: list[Finding] = []
     for ws in wb.worksheets:
+        out += slop(ws) + slop_layout(ws)
         generated = ws.title in GENERATED_SHEETS
         sheet_doc = " ".join(str(c.value) for row in ws.iter_rows() for c in row
                              if c.style in ("ec_source", "ec_comment") and isinstance(c.value, str))
