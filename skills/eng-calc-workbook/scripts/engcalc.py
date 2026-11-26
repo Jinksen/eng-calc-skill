@@ -35,7 +35,7 @@ from openpyxl.utils import absolute_coordinate, get_column_letter, quote_sheetna
 from openpyxl.workbook.defined_name import DefinedName
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.worksheet.pagebreak import Break
-from openpyxl.worksheet.table import Table, TableStyleInfo
+from openpyxl.worksheet.table import Table, TableFormula, TableStyleInfo
 from openpyxl.worksheet.worksheet import Worksheet
 
 Scalar = Union[int, float, str, dt.date, None]
@@ -623,7 +623,7 @@ class EngWorkbook:
 
     def _build_checks(self) -> None:
         ws = self._checks_ws
-        heads = ("#", "Check / condition", "Symbol", "η [–]", "Status", "Sheet", "Link", "fail", "warn")
+        heads = ("#", "Check / condition", "Symbol", "η", "Status", "Sheet", "Link", "fail", "warn")
         hr = 10
         for i, h in enumerate(heads):
             ws.cell(hr, 2 + i, h).style = "ec_colhead"
@@ -656,9 +656,17 @@ class EngWorkbook:
             ws.cell(r, 10, f'=IF(LEFT(F{r},1)="{WARN}",1,0)').style = "ec_aux"
             r += 1
         last = max(r - 1, first)
-        self.define("chk_eta", ws, f"E{first}:E{last}")
-        self.define("chk_fail", ws, f"I{first}:I{last}")
-        self.define("chk_warn", ws, f"J{first}:J{last}")
+        # Excel table: a row added by the user gets styles, the fail/warn flags, and enters the banner
+        t = Table(displayName="tbl_Checks", ref=f"B{hr}:J{last}")
+        t.tableStyleInfo = TableStyleInfo(name="TableStyleLight1", showRowStripes=False)
+        t._initialise_columns()
+        for col, h in zip(t.tableColumns, heads):  # openpyxl names them Column1… once initialised here
+            col.name = h
+        for col, sym in ((t.tableColumns[7], FAIL), (t.tableColumns[8], WARN)):
+            col.calculatedColumnFormula = TableFormula(attr_text=f'IF(LEFT(tbl_Checks[[#This Row],[Status]],1)="{sym}",1,0)')
+        ws.add_table(t)
+        for name, head in (("chk_eta", "η"), ("chk_fail", "fail"), ("chk_warn", "warn")):
+            self.define_formula(name, ws, struct_ref("Checks", head))
         self._chk_span = (first, last)
         _status_rules(ws, f"F{first}:F{last}", f"$F{first}")
         ws.conditional_formatting.add(
@@ -853,6 +861,8 @@ def _page_setup(ws: Worksheet, area: str, *, title_rows: str | None, landscape: 
 class CalcSheet:
     """Vertical calculation pad: one row = one quantity / step / condition."""
 
+    spare = 3  # empty styled rows closing each section: the user adds a step without formatting
+
     def __init__(self, book: EngWorkbook, ws: Worksheet, title: str) -> None:
         self.book, self.ws, self.title = book, ws, title
         self.r = HEADER_ROWS + 2
@@ -879,7 +889,18 @@ class CalcSheet:
         self._cell("src", source, "ec_source")
         self._cell("stat", None, "ec_status")
 
+    def _spare_rows(self) -> None:
+        """Styled, empty rows inside the section and its conditional formatting range."""
+        if not self._item:
+            return
+        for _ in range(self.spare):
+            for key, style in (("id", "ec_unit"), ("label", "ec_label"), ("sym", "ec_symbol"), ("val", "ec_calc"),
+                               ("unit", "ec_unit"), ("text", "ec_text"), ("src", "ec_source"), ("stat", "ec_status")):
+                self._cell(key, None, style)
+            self.r += 1
+
     def section(self, title: str) -> None:
+        self._spare_rows()
         if self.r > HEADER_ROWS + 2:
             self.r += 1
         self._sec += 1
@@ -1046,6 +1067,7 @@ class CalcSheet:
     # -- finish ------------------------------------------------------------- #
     def close(self) -> None:
         """Call after the last row: status colouring, input span, print area."""
+        self._spare_rows()
         last = self.r
         stat = get_column_letter(COL["stat"])
         val = get_column_letter(COL["val"])

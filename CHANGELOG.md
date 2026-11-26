@@ -7,6 +7,9 @@
   engineering change form), and rules that keep the calculation editable without design work
   (cell styles, CF on block ranges, spare styled rows, tables, names, live `FORMULATEXT`),
   plus an editability test. `SKILL.md` hard rules 4–5, §6 point 6.
+- `engcalc.py`: `CalcSheet` sections end with 3 spare styled rows (`CalcSheet.spare`); the check
+  register is the Excel table `tbl_Checks` and `chk_eta / chk_fail / chk_warn` are its columns,
+  so checks added in Excel enter the banner.
 - **Agent team** in `agent-workflow.md`: designer → calculator → checker with `layout.md` as
   the contract between design and calculation; the checker covers numbers, form and editability.
 

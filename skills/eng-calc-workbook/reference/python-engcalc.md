@@ -58,6 +58,12 @@ book.readme(purpose=…, scope=[…], assumptions=[…], workflow=[…], sources
 book.save(path)                           # orders sheets, builds register, utilisation charts, README, protection
 ```
 
+Editability is built in ([dense-editable-sheet.md](dense-editable-sheet.md)): every `CalcSheet`
+section ends with `CalcSheet.spare` (default 3) empty styled rows inside its status formatting —
+set `s.spare = 0` on a sheet that must stay compact. The register `80_Checks` is the Excel table
+`tbl_Checks`; `chk_eta`, `chk_fail`, `chk_warn` are its columns, so a row the user adds in Excel
+gets the fail / warn flags and enters the banner. The utilisation chart keeps the built range.
+
 ### Printable report (see [report-sheet.md](report-sheet.md), reference `example_ipe_beam.py` → `70_Report`)
 
 ```python
