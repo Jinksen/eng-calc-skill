@@ -52,6 +52,15 @@ description: >
    **TO CONFIRM**, important notes start with **NOTE:** — rules in
    [reference/visual-language.md](reference/visual-language.md) "Marking what matters". A
    number without a label, symbol and unit is a finding.
+4. **Few sheets, full sheets.** 3–6 tabs; the working sheet carries most of the content in
+   bands of 2–4 blocks side by side on one column grid, with full-width section bars (like the
+   RCC / TCC sheets). Stacking everything one under another is not "clear", it is long.
+5. **The calculation stays editable.** The engineer must be able to add a step, change a
+   formula or add a check without touching the design: cell styles only, conditional
+   formatting on whole block ranges, spare styled rows, tables for lists and the checks
+   register, names instead of addresses, no merged cells.
+   Anatomy, both reference sheets and the editability test →
+   [reference/dense-editable-sheet.md](reference/dense-editable-sheet.md).
 
 ### Related skills — load them automatically when available
 
@@ -95,7 +104,7 @@ follow *Restraint* in visual-language.md so the result looks like a design offic
 | The user brought an existing workbook for review | **C – review**: step 1, then [reference/review.md](reference/review.md) |
 | More than ~3 calculation sheets or more checks than fit into one session | **D – tickets** → [reference/tickets.md](reference/tickets.md), then A/B ticket by ticket |
 | A formula is not enough (UDF, export, shapes from coordinates) and the target is desktop Excel | macros as an extra to A/B → [reference/vba.md](reference/vba.md); on Windows with desktop Excel run the tests with `scripts/vba_run.ps1` |
-| Path D or ≥ 2 catalogues to transcribe, and you can start subagents | split the work by role and model tier → [reference/agent-workflow.md](reference/agent-workflow.md) |
+| You can start subagents and the workbook is more than one quick sheet | team **designer → calculator → checker** (+ extractors) → [reference/agent-workflow.md](reference/agent-workflow.md) |
 
 Done when the path is chosen and its reference file is loaded.
 
@@ -250,6 +259,8 @@ Axes always with units, no 3D, series colours from the palette.
 6. Layout test: on the working sheet at 100 % (or 70–85 % on a wide sheet), change the main
    input — its results, sketch and checks change **on the same screen**; the sheet uses the
    width (not everything in A–J); key result, governing check and TO CONFIRM items are marked.
+   Editability test from [reference/dense-editable-sheet.md](reference/dense-editable-sheet.md):
+   a new step, a changed formula and a new check need no manual formatting.
 7. Path B: `python scripts/verify.py file.xlsx --render out/` → exit 0, look at the PNGs.
    Path A: go through the checklist in [reference/excel-in-place.md](reference/excel-in-place.md).
 
@@ -274,4 +285,5 @@ assumptions go into your answer.
 - `reference/databases.md` — writing catalogues and registers as Excel tables, dropdowns (dependent, filtered), lookup functions, integrity conditions, entry forms, literature
 - `scripts/example_pile_cap.py` — reference build of template T1 (TCC / RCC design-office sheet, `FormSheet`): two-pile cap, EN 1992-1-1
 - `reference/templates.md` — catalogue of whole-workbook templates (T1–T7) and the parts every template must have
-- `reference/agent-workflow.md` — subagent roles on cheaper models (extractor, builder, checker, visual reviewer), file hand-overs, cost rules
+- `reference/agent-workflow.md` — agent team (designer, calculator, checker, extractor), model tiers, file hand-overs, cost rules
+- `reference/dense-editable-sheet.md` — few full sheets using the width (lessons from the RCC slab and a change-form template), editable calculation rules and test

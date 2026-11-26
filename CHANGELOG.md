@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Dense, editable sheet** `reference/dense-editable-sheet.md`: few full sheets in bands on one
+  column grid with full-width section bars (lessons from the RCC ribbed slab sheet and an
+  engineering change form), and rules that keep the calculation editable without design work
+  (cell styles, CF on block ranges, spare styled rows, tables, names, live `FORMULATEXT`),
+  plus an editability test. `SKILL.md` hard rules 4–5, §6 point 6.
+- **Agent team** in `agent-workflow.md`: designer → calculator → checker with `layout.md` as
+  the contract between design and calculation; the checker covers numbers, form and editability.
+
 - **Sheet layout — hard rules** in `SKILL.md`: use the whole width (up to ~BB, blocks side by
   side, not everything in A–J), every input sees its results and checks on the same screen
   without scrolling, important items marked. New verification step 6 (layout test).
